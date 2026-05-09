@@ -1,0 +1,79 @@
+{
+  "name": "@rubric/verify",
+  "version": "1.0.0-rc.1",
+  "description": "Reference TypeScript implementation of the Rubric Attestation Verification Specification v1.0.0",
+  "license": "Apache-2.0",
+  "author": "Echelon Intelligence Group LLC",
+  "homepage": "https://github.com/rubric-protocol/rubric-verify#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rubric-protocol/rubric-verify.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rubric-protocol/rubric-verify/issues"
+  },
+  "keywords": [
+    "rubric",
+    "attestation",
+    "verification",
+    "ml-dsa-65",
+    "post-quantum",
+    "hedera",
+    "base",
+    "ethereum",
+    "ai-compliance",
+    "eu-ai-act",
+    "merkle"
+  ],
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist coverage",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:types",
+    "build:esm": "tsc -p tsconfig.build.json --module ESNext --moduleResolution Bundler --outDir dist/esm",
+    "build:cjs": "tsc -p tsconfig.build.json --module CommonJS --moduleResolution Node --outDir dist/cjs && node -e \"require('fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'}))\"",
+    "build:types": "tsc -p tsconfig.build.json --emitDeclarationOnly --declaration --outDir dist/types",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
+    "format": "prettier --write 'src/**/*.ts' 'test/**/*.ts'",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.6.0",
+    "@noble/hashes": "^1.5.0",
+    "@noble/post-quantum": "^0.2.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^7.13.0",
+    "@typescript-eslint/parser": "^7.13.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.3.2",
+    "ts-jest": "^29.1.5",
+    "typescript": "^5.5.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

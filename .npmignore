@@ -1,0 +1,15 @@
+src/
+test/
+examples/
+coverage/
+.github/
+tsconfig.json
+tsconfig.build.json
+jest.config.cjs
+.eslintrc.cjs
+.prettierrc
+.gitignore
+*.tsbuildinfo
+*.log
+.DS_Store
+.env*
