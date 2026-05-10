@@ -96,7 +96,8 @@ describe('Merkle (spec §7)', () => {
     const { proof, directions } = buildProof(leaves, 0);
     const corrupted = proof.slice();
     // Flip the last hex character.
-    corrupted[0] = (corrupted[0] as string).slice(0, -1) + '0';
+    const _orig = corrupted[0] as string;
+    corrupted[0] = (_orig[0] === '0' ? 'f' : '0') + _orig.slice(1);
     const result = verifyMerkleProof(
       leaves[0] as Uint8Array,
       corrupted,

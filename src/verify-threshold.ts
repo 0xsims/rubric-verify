@@ -106,17 +106,10 @@ export async function verifyThreshold(
     failures.push('Base anchor not found or root mismatch');
   }
 
-  details.anchor_roots_match =
-    !!details.hcs_anchor_confirmed &&
-    !!details.base_anchor_confirmed &&
-    !!hcs &&
-    !!base &&
-    hexEqual(hcs.payload_hash, base.aggregate_root);
-  if (
-    details.hcs_anchor_confirmed &&
-    details.base_anchor_confirmed &&
-    !details.anchor_roots_match
-  ) {
+  if (hcs !== null && base !== null) {
+    details.anchor_roots_match = hexEqual(hcs.payload_hash, base.aggregate_root);
+  }
+  if (details.anchor_roots_match === false) {
     failures.push('HCS and Base anchor disagree on payload hash');
   }
 

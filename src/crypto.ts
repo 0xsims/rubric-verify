@@ -23,7 +23,7 @@ import { ml_dsa65 } from '@noble/post-quantum/ml-dsa';
 export const ML_DSA_65_PUBLIC_KEY_BYTES = 1952;
 
 /** ML-DSA-65 signature length per FIPS 204. */
-export const ML_DSA_65_SIGNATURE_BYTES = 3293;
+export const ML_DSA_65_SIGNATURE_BYTES = 3309;
 
 /** Compute SHA-256 of `data`. */
 export function sha256(data: Uint8Array): Uint8Array {

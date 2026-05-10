@@ -298,7 +298,7 @@ function makeStubFetch(opts: {
   const eventTopic =
     '0x' + hexEncode(keccak256(new TextEncoder().encode('AnchorStored(bytes32)')));
 
-  return (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const stub: typeof fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : input.toString();
     if (url.includes('/api/v1/transactions/')) {
       if (opts.hcsPayloadHashHex === null) {
@@ -340,7 +340,8 @@ function makeStubFetch(opts: {
       );
     }
     return new Response('unexpected request', { status: 500 });
-  }) as typeof fetch;
+  };
+  return stub;
 }
 
 /* -------------------------------------------------------------------------- */

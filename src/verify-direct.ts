@@ -92,18 +92,13 @@ export async function verifyDirect(
     failures.push('Base anchor not found or root mismatch');
   }
 
-  /* §9.3.5 — Cross-chain consistency. */
-  details.anchor_roots_match =
-    !!details.hcs_anchor_confirmed &&
-    !!details.base_anchor_confirmed &&
-    !!hcs &&
-    !!base &&
-    hexEqual(hcs.payload_hash, base.aggregate_root);
-  if (
-    details.hcs_anchor_confirmed &&
-    details.base_anchor_confirmed &&
-    !details.anchor_roots_match
-  ) {
+  /* §9.3.5 / §10.4 — Cross-chain consistency. If both anchors returned data,
+     their reported hashes MUST agree with each other, regardless of whether
+     each individually matches the expected hash. */
+  if (hcs !== null && base !== null) {
+    details.anchor_roots_match = hexEqual(hcs.payload_hash, base.aggregate_root);
+  }
+  if (details.anchor_roots_match === false) {
     failures.push('HCS and Base anchor disagree on payload hash');
   }
 
@@ -118,9 +113,9 @@ export async function verifyDirect(
 }
 
 /**
- * Anchor outcome per spec §9.3.6 + §10.3:
+ * Anchor outcome per spec §9.3.6 + §10.3 + §10.4:
  *   - At least one anchor confirms.
- *   - If both confirm, they agree.
+ *   - If both anchors returned data, their reported hashes must agree.
  *   - If `allowSingleAnchor` is false, both MUST confirm.
  */
 export function computeAnchorOk(d: VerifyDetails, allowSingleAnchor: boolean): boolean {
@@ -128,7 +123,8 @@ export function computeAnchorOk(d: VerifyDetails, allowSingleAnchor: boolean): b
   const base = !!d.base_anchor_confirmed;
   if (!hcs && !base) return false;
   if (!allowSingleAnchor && !(hcs && base)) return false;
-  if (hcs && base && d.anchor_roots_match === false) return false;
+  // §10.4: if both anchors returned data and disagree, fatal regardless of confirmation.
+  if (d.anchor_roots_match === false) return false;
   return true;
 }
 
