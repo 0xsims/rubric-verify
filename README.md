@@ -170,7 +170,15 @@ different signature, the event-decode logic in `src/anchors/base.ts` must be
 adjusted, or the `eventSignature` option (currently internal) must be exposed
 in the public API.
 
-### 3. §13 / §14 test vectors are placeholders
+### 3. ML-DSA-65 signature size: spec says 3293, FIPS 204 final says 3309
+
+The verify spec §4.2 states "Signatures are 3293 bytes in length." That number is from the FIPS 204 *draft*. FIPS 204 *final* (NIST, August 2024) defines ML-DSA-65 signatures as **3309 bytes** — the difference is a 16-byte structural change in the signature encoding. `@noble/post-quantum` (and any other conforming ML-DSA-65 library) produces 3309-byte signatures, which is what the federation actually emits.
+
+This implementation uses 3309 (`ML_DSA_65_SIGNATURE_BYTES = 3309` in `src/crypto.ts`) to match runtime reality. The verify spec §4.2 should be updated — either to state 3309, or to cite FIPS 204 by reference and omit the byte-count assertion.
+
+The §14.8 truncated-signature test still works under either size: any signature significantly shorter than 3309 (or 3293) is rejected by the length pre-check before invoking the verify primitive.
+
+### 4. §13 / §14 test vectors are placeholders
 
 The spec's normative test vectors are populated at ratification time with
 real federation-issued data. The test suite in `test/verify.test.ts` exercises
@@ -189,7 +197,7 @@ v1.0.0 vectors.
 | Trust anchor signing | Ed25519 | `@noble/curves` |
 | Ethereum event topic selector | Keccak-256 | `@noble/hashes` |
 
-ML-DSA-65 public keys are 1952 bytes, signatures are 3293 bytes. Threshold
+ML-DSA-65 public keys are 1952 bytes, signatures are 3309 bytes (FIPS 204 final; see Open Spec Issues §3). Threshold
 signatures use the same primitive — the aggregated form is structurally
 identical to a non-aggregated signature (spec §4.3) and verifies against the
 threshold-aggregated public key.

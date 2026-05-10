@@ -41,6 +41,10 @@ Rubric Attestation Verification Specification v1.0.0 (draft).
   the spec. Real federation-issued tiered attestations will not verify
   successfully until either the spec or ADR 0005 is amended. See README §
   "Open Spec Issues."
+- **ML-DSA-65 signature size: 3293 vs 3309.** Verify spec §4.2 states 3293
+  bytes (FIPS 204 draft). FIPS 204 final defines 3309 bytes, which is what
+  `@noble/post-quantum` produces and what the federation emits. This
+  implementation uses 3309 (`src/crypto.ts`); spec §4.2 should be updated.
 - **§13 / §14 test vectors are placeholders.** Will be pinned at spec
   ratification.
 - **AnchorStored event ABI not normatively pinned.** Default decoder assumes
