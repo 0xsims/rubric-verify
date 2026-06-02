@@ -294,24 +294,62 @@ function buildThresholdAttestation(
 function makeStubFetch(opts: {
   hcsPayloadHashHex: string | null;
   baseAggregateRootHex: string | null;
+  issuerRegion?: 'us' | 'sg' | 'jp' | 'ca' | 'eu';
 }): typeof fetch {
   const eventTopic =
-    '0x' + hexEncode(keccak256(new TextEncoder().encode('AnchorStored(bytes32)')));
+    '0x' + hexEncode(keccak256(new TextEncoder().encode('AnchorStored(uint256,bytes32,string,uint64,uint64)')));
+
+  // HCS_TX_ID = '0.0.1234567@1714000000.000000000'
+  //   -> initial_transaction_id.account_id            = '0.0.1234567'
+  //   -> initial_transaction_id.transaction_valid_start = '1714000000.000000000'
+  const TX_ACCOUNT_ID = '0.0.1234567';
+  const TX_VALID_START = '1714000000.000000000';
+  const region = opts.issuerRegion ?? 'us';
 
   const stub: typeof fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : input.toString();
-    if (url.includes('/api/v1/transactions/')) {
+
+    // --- HCS mirror: topic messages endpoint (chunked reassembly) ---
+    if (url.includes('/api/v1/topics/') && url.includes('/messages')) {
+      // No matching anchor: empty page so reassembly yields null.
       if (opts.hcsPayloadHashHex === null) {
-        return new Response('not found', { status: 404 });
+        return new Response(JSON.stringify({ messages: [], links: { next: null } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
       }
-      const messageJson = JSON.stringify({ payload_hash: opts.hcsPayloadHashHex });
-      const messageB64 = Buffer.from(messageJson).toString('base64');
-      return new Response(JSON.stringify({ message: messageB64 }), {
+      // Single-chunk envelope carrying the four cross-checked fields + payload_hash.
+      const envelope = {
+        attestation_id: 'att_2026_04_20_a1b2c3d4',
+        attestation_type: 'direct',
+        issuer_node_region: region,
+        issued_at: '2026-04-20T14:32:01Z',
+        payload_hash: opts.hcsPayloadHashHex,
+      };
+      const messageB64 = Buffer.from(JSON.stringify(envelope)).toString('base64');
+      const body = {
+        messages: [
+          {
+            chunk_info: {
+              initial_transaction_id: {
+                account_id: TX_ACCOUNT_ID,
+                transaction_valid_start: TX_VALID_START,
+              },
+              number: 1,
+              total: 1,
+            },
+            message: messageB64,
+          },
+        ],
+        links: { next: null },
+      };
+      return new Response(JSON.stringify(body), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     }
-    // Base RPC
+
+    // --- Base RPC (unchanged: SP-2 5-field AnchorStored layout) ---
     if (init?.method === 'POST') {
       if (opts.baseAggregateRootHex === null) {
         return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: null }), {
@@ -330,7 +368,7 @@ function makeStubFetch(opts: {
             logs: [
               {
                 address: ANCHOR_CONTRACT,
-                topics: [eventTopic],
+                topics: [eventTopic, '0x' + '0'.repeat(63) + '1'], // topics[1]=idx, distinct from root
                 data: dataHex,
               },
             ],
@@ -386,6 +424,7 @@ describe('verify (end-to-end)', () => {
           fetch: makeStubFetch({
             hcsPayloadHashHex: payloadHashHex,
             baseAggregateRootHex: payloadHashHex,
+            issuerRegion: region,
           }),
         },
       });

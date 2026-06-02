@@ -83,7 +83,14 @@ export async function verifyThreshold(
   /* Anchor checks — identical structure to direct (single payload hash). */
   const hcs = await fetchHcsMessage({
     hederaMirror: access.hederaMirror,
+    topicId: a.anchors.hcs.topic_id,
     txId: a.anchors.hcs.tx_id,
+    expected: {
+      attestation_id: a.attestation_id,
+      attestation_type: a.attestation_type,
+      issuer_node_region: a.issuer_node_region,
+      issued_at: a.issued_at,
+    },
     fetchImpl: access.fetch,
     timeoutMs: access.timeoutMs,
   });
