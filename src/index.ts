@@ -18,6 +18,15 @@
 
 export { verify } from './verify.js';
 
+export { verifyChain } from './verify-chain.js';
+export type {
+  ChainFinding,
+  ChainVerifyResult,
+  ChainVerifyOptions,
+  StepVerifier,
+  StepVerifyResult,
+} from './verify-chain.js';
+
 export {
   validateTrustAnchorSignature,
   selectTrustAnchor,
