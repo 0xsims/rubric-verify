@@ -15,3 +15,6 @@ coverage/
 generate-trust-anchor.mjs
 ta-keylist-check.mjs
 trust-anchor.v1.unsigned.json
+*.bak-*
+step2*.py
+step2*.ts
