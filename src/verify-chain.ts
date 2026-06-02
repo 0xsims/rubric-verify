@@ -213,7 +213,7 @@ export async function verifyChain(
   // unanchored / tamper. This is fail-closed: any step failing => chain fails.
   if (!opts?.skipStepVerification) {
     const stepVerifier: StepVerifier =
-      opts?.verifyStep ?? ((a) => verify({ attestation: a, trustAnchor, access }));
+      opts?.verifyStep ?? ((a) => verify({ attestation: a, trustAnchor, ...(access !== undefined ? { access } : {}) }));
     for (const a of attestations) {
       let res: StepVerifyResult;
       try {
