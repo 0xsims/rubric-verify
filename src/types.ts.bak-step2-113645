@@ -57,39 +57,6 @@ export interface Anchors {
 export type AttestationPayload = unknown;
 
 /** Common fields present on every attestation type per spec §5.1. */
-/**
- * Provenance link per spec §5.4. Present only when this attestation consumed
- * the output of another attested step. Signed as a sibling of `payload`, so the
- * link is tamper-evident and verifier-traversable (verify-chain walks these).
- */
-export interface AttestationProvenance {
-  parent_attestation_id: string;
-  parent_payload_hash: string;
-  parent_issuer_region: NodeRegion;
-  relationship: 'consumed_output' | 'derived_from' | 'aggregated_from';
-}
-
-/**
- * Evidence reference per spec §5.5. Either an attested Rubric node (verifiable
- * by recursion) or an external source (recorded by hash; never silently treated
- * as verified). Signed as a sibling of `payload` when present.
- */
-export type EvidenceRef =
-  | {
-      kind: 'attested';
-      attestation_id: string;
-      payload_hash: string;
-      issuer_region: NodeRegion;
-      role: string;
-    }
-  | {
-      kind: 'external';
-      source_type: 'database' | 'api' | 'file' | 'user_input' | 'sensor' | 'model_output' | 'blockchain';
-      source_hash: string;
-      provider: string;
-      role: string;
-    };
-
 export interface AttestationBase {
   rubric_version: string;
   attestation_type: AttestationType;
@@ -97,10 +64,6 @@ export interface AttestationBase {
   issuer_node_region: NodeRegion;
   issued_at: string;
   payload: AttestationPayload;
-  /** Optional provenance link (spec §5.4); signed sibling of payload when present. */
-  provenance?: AttestationProvenance;
-  /** Optional evidence references (spec §5.5); signed sibling of payload when present. */
-  evidence?: EvidenceRef[];
   /** Base64-encoded ML-DSA-65 public key (1952 bytes). */
   publicKey: string;
   /** Hex-encoded ML-DSA-65 signature (3293 bytes). */

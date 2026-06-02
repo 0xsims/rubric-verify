@@ -46,6 +46,8 @@ export async function verifyThreshold(
     issuer_node_region: a.issuer_node_region,
     issued_at: a.issued_at,
     payload: a.payload,
+    ...(a.provenance ? { provenance: a.provenance } : {}),
+    ...(a.evidence ? { evidence: a.evidence } : {}),
   });
   const expectedHashHex = hexEncode(sha256(messageBytes));
 
