@@ -12,3 +12,6 @@ coverage/
 *.swp
 *.swo
 *.backup-*
+generate-trust-anchor.mjs
+ta-keylist-check.mjs
+trust-anchor.v1.unsigned.json
