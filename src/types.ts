@@ -58,15 +58,25 @@ export type AttestationPayload = unknown;
 
 /** Common fields present on every attestation type per spec §5.1. */
 /**
- * Provenance link per spec §5.4. Present only when this attestation consumed
- * the output of another attested step. Signed as a sibling of `payload`, so the
- * link is tamper-evident and verifier-traversable (verify-chain walks these).
+ * Provenance edge per spec §3.4. One entry per parent this attestation consumed.
+ * Signed as a sibling of `payload`, so links are tamper-evident and
+ * verifier-traversable (verify-chain walks the DAG these edges form).
  */
-export interface AttestationProvenance {
+export interface ParentRef {
   parent_attestation_id: string;
   parent_payload_hash: string;
   parent_issuer_region: NodeRegion;
   relationship: 'consumed_output' | 'derived_from' | 'aggregated_from';
+}
+
+/**
+ * DAG provenance: an attestation may have multiple parents (a merge) or none
+ * (a root). Linear chains are the degenerate single-element case. Legacy
+ * single-parent records ({parent_attestation_id,...}) are normalized at read
+ * time by getParents() in verify-chain.ts and remain verifiable.
+ */
+export interface AttestationProvenance {
+  parents: ParentRef[];
 }
 
 /**

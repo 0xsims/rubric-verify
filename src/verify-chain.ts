@@ -19,6 +19,25 @@
  */
 
 import { verify } from './verify.js';
+
+// DAG normalizer (the legacy airlock): accepts old single-parent provenance
+// ({parent_attestation_id,...}) OR new multi-parent ({parents:[...]}) and
+// returns a uniform parent-edge array. Old records stay verifiable.
+type _ParentEdge = { parent_attestation_id: string; parent_payload_hash: string; parent_issuer_region: string; relationship: string };
+function getParents(prov: unknown): _ParentEdge[] {
+  if (!prov || typeof prov !== 'object') return [];
+  const p = prov as Record<string, unknown>;
+  if (Array.isArray((p as any).parents)) return (p as any).parents as _ParentEdge[];
+  if (typeof p['parent_attestation_id'] === 'string') {
+    return [{
+      parent_attestation_id: p['parent_attestation_id'] as string,
+      parent_payload_hash: p['parent_payload_hash'] as string,
+      parent_issuer_region: (p['parent_issuer_region'] as string) ?? '',
+      relationship: (p['relationship'] as string) ?? 'consumed_output',
+    }];
+  }
+  return [];
+}
 import { canonicalizeBytes } from './canonical.js';
 import { hexEqual, hexEncode, sha256 } from './crypto.js';
 import type {
@@ -142,42 +161,35 @@ export async function verifyChain(
     findings.push({ type: 'gap', detail: 'no chain head: every attestation has a provenance parent (cycle or orphaned)' });
     return makeResult(false, attestations.length, null, null, findings, wf);
   }
-  if (heads.length > 1) {
-    findings.push({
-      type: 'gap',
-      detail: `ambiguous chain: ${heads.length} heads (attestations with no provenance): ${heads.map((h) => h.attestation_id).join(', ')}`,
-    });
-  }
-  const head = heads[0]!;
+  // DAG: multiple roots (independent inputs) are valid. No finding for >1 root.
+  const roots = heads;
 
   // --- reachability walk from head, following children (parent -> child) ---
   const childrenOf = new Map<string, string[]>();
   for (const a of attestations) {
-    const parentId = a.provenance?.parent_attestation_id;
-    if (parentId) {
-      const arr = childrenOf.get(parentId) ?? [];
+    for (const pe of getParents(a.provenance)) {
+      const arr = childrenOf.get(pe.parent_attestation_id) ?? [];
       arr.push(a.attestation_id);
-      childrenOf.set(parentId, arr);
+      childrenOf.set(pe.parent_attestation_id, arr);
     }
   }
 
   const reachable = new Set<string>();
-  const stack: string[] = [head.attestation_id];
-  let tail: string | null = head.attestation_id;
-  let maxDepth = -1;
-  const depth = new Map<string, number>([[head.attestation_id, 0]]);
+  const stack: string[] = roots.map((r) => r.attestation_id);
+  for (const r of roots) reachable.add(r.attestation_id);
   while (stack.length) {
     const id = stack.pop()!;
-    if (reachable.has(id)) continue; // cycle guard
-    reachable.add(id);
-    const d = depth.get(id) ?? 0;
-    if (d > maxDepth) { maxDepth = d; tail = id; }
     for (const childId of childrenOf.get(id) ?? []) {
-      if (!reachable.has(childId)) {
-        depth.set(childId, d + 1);
-        stack.push(childId);
-      }
+      if (!reachable.has(childId)) { reachable.add(childId); stack.push(childId); }
     }
+  }
+  // tail = unique sink: a node that is no other node's parent.
+  const parentIds = new Set<string>();
+  for (const a of attestations) for (const pe of getParents(a.provenance)) parentIds.add(pe.parent_attestation_id);
+  const sinks = attestations.filter((a) => !parentIds.has(a.attestation_id));
+  let tail: string | null = sinks.length === 1 ? sinks[0]!.attestation_id : null;
+  if (sinks.length > 1) {
+    findings.push({ type: 'gap', detail: `ambiguous tail: ${sinks.length} sinks (no single final decision): ${sinks.map((x) => x.attestation_id).join(', ')}` });
   }
 
   // --- gap: any attestation not reachable from head ---
@@ -193,17 +205,17 @@ export async function verifyChain(
 
   // --- linkage hash-checks (tamper-evidence) ---
   for (const a of attestations) {
-    const prov = a.provenance;
-    if (!prov) continue;
-    const parent = index.get(prov.parent_attestation_id);
-    if (!parent) continue; // missing parent => gap already recorded
-    const actualParentHash = canonicalHashHex(parent);
-    if (!hexEqual(prov.parent_payload_hash, actualParentHash)) {
-      findings.push({
-        type: 'break',
-        attestation_id: a.attestation_id,
-        detail: `provenance.parent_payload_hash does not match recomputed hash of parent ${prov.parent_attestation_id}`,
-      });
+    for (const pe of getParents(a.provenance)) {
+      const parent = index.get(pe.parent_attestation_id);
+      if (!parent) continue; // missing parent => gap already recorded
+      const actualParentHash = canonicalHashHex(parent);
+      if (!hexEqual(pe.parent_payload_hash, actualParentHash)) {
+        findings.push({
+          type: 'break',
+          attestation_id: a.attestation_id,
+          detail: `provenance.parent_payload_hash does not match recomputed hash of parent ${pe.parent_attestation_id}`,
+        });
+      }
     }
   }
 
@@ -249,5 +261,5 @@ export async function verifyChain(
   }
 
   const verified = findings.length === 0;
-  return makeResult(verified, attestations.length, head.attestation_id, tail, findings, wf);
+  return makeResult(verified, attestations.length, roots[0]?.attestation_id ?? null, tail, findings, wf);
 }
