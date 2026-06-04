@@ -170,10 +170,12 @@ function buildDirectAttestation(
 function buildDirectAttestationWithProvenance(
   fixture: Fixture,
   provenance: {
-    parent_attestation_id: string;
-    parent_payload_hash: string;
-    parent_issuer_region: 'us' | 'sg' | 'jp' | 'ca' | 'eu';
-    relationship: 'consumed_output' | 'derived_from' | 'aggregated_from';
+    parents: {
+      parent_attestation_id: string;
+      parent_payload_hash: string;
+      parent_issuer_region: 'us' | 'sg' | 'jp' | 'ca' | 'eu';
+      relationship: 'consumed_output' | 'derived_from' | 'aggregated_from';
+    }[];
   },
   region: 'us' | 'sg' | 'jp' | 'ca' | 'eu' = 'us',
 ): { attestation: DirectAttestation; payloadHashHex: string } {
@@ -221,10 +223,14 @@ function buildDirectAttestationWithProvenance(
 
 describe('verify (provenance-bearing direct attestations — Step 2)', () => {
   const PROV = {
-    parent_attestation_id: 'att_2026_04_20_parent00',
-    parent_payload_hash: 'a'.repeat(64),
-    parent_issuer_region: 'us' as const,
-    relationship: 'consumed_output' as const,
+    parents: [
+      {
+        parent_attestation_id: 'att_2026_04_20_parent00',
+        parent_payload_hash: 'a'.repeat(64),
+        parent_issuer_region: 'us' as const,
+        relationship: 'consumed_output' as const,
+      },
+    ],
   };
 
   it('verifies a direct attestation that carries signed provenance', async () => {
@@ -252,7 +258,16 @@ describe('verify (provenance-bearing direct attestations — Step 2)', () => {
     // Mutate the signed provenance link: signature should no longer verify.
     const tampered: DirectAttestation = {
       ...attestation,
-      provenance: { ...PROV, parent_payload_hash: 'b'.repeat(64) },
+      provenance: {
+        parents: [
+          {
+            parent_attestation_id: 'att_2026_04_20_parent00',
+            parent_payload_hash: 'b'.repeat(64),
+            parent_issuer_region: 'us' as const,
+            relationship: 'consumed_output' as const,
+          },
+        ],
+      },
     };
     const result = await verify({
       attestation: tampered,

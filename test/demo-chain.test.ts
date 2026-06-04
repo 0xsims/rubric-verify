@@ -9,7 +9,7 @@ import { verifyChain } from '../src/verify-chain.js';
 import type { StepVerifyResult } from '../src/verify-chain.js';
 import { canonicalizeBytes } from '../src/canonical.js';
 import { sha256, hexEncode, hexDecode, mlDsa65Verify, base64Encode, base64Decode } from '../src/crypto.js';
-import type { Attestation, DirectAttestation, TrustAnchor } from '../src/types.js';
+import type { Attestation, AttestationProvenance, DirectAttestation, TrustAnchor } from '../src/types.js';
 
 const REGION = 'us' as const;
 const ANCHOR = {
@@ -47,12 +47,17 @@ function buildStep(
     anchors: ANCHOR,
   };
   if (parent) {
+    // LEGACY-AIRLOCK GUARD (do NOT modernize): intentionally emits the pre-DAG
+    // single-parent provenance shape to exercise getParents()'s back-compat branch
+    // (verify-chain.ts) against a real ML-DSA-65-signed chain. Cast through unknown
+    // because AttestationProvenance is now strictly {parents:[]}; this fixture
+    // represents legacy on-disk data whose shape predates that type.
     a.provenance = {
       parent_attestation_id: parent.id,
       parent_payload_hash: parent.payloadHash,
       parent_issuer_region: REGION,
       relationship: 'consumed_output',
-    };
+    } as unknown as AttestationProvenance;
   }
   const msg = canonBytes(a);
   a.signature = hexEncode(ml_dsa65.sign(kp.secretKey, msg));
@@ -76,7 +81,7 @@ async function realVerifyStep(a: Attestation): Promise<StepVerifyResult> {
 const DUMMY_TA = {} as unknown as TrustAnchor;
 
 function buildChain(): DirectAttestation[] {
-  const kp = ml_dsa65.keygen();
+  const kp = ml_dsa65.keygen(new Uint8Array(32).fill(7));
   const s1 = buildStep(kp, 'step-1-retrieve', { action: 'retrieve_customer_record', customer: 'ACME-1042' });
   const s2 = buildStep(kp, 'step-2-assess', { action: 'risk_assessment', score: 0.82, model: 'risk-v3' },
     { id: s1.attestation.attestation_id, payloadHash: s1.payloadHash });
@@ -98,7 +103,7 @@ describe('DEMO — agentic chain real-crypto end-to-end (Item 2 golden fixture)'
 
   it('detects tampering: altering step-2 payload breaks its signature AND step-3 link', async () => {
     const chain = buildChain();
-    (chain[1].payload as Record<string, unknown>).score = 0.20; // doctor the record after signing
+    (chain[1]!.payload as Record<string, unknown>).score = 0.20; // doctor the record after signing
     const r = await verifyChain(chain as Attestation[], DUMMY_TA, undefined, {
       verifyStep: realVerifyStep, workflowId: 'credit-decision-demo',
     });

@@ -21,10 +21,14 @@ function node(id: string, parent?: { id: string; payloadHash: string }): DirectA
   };
   if (parent) {
     a.provenance = {
-      parent_attestation_id: parent.id,
-      parent_payload_hash: parent.payloadHash,
-      parent_issuer_region: 'us',
-      relationship: 'consumed_output',
+      parents: [
+        {
+          parent_attestation_id: parent.id,
+          parent_payload_hash: parent.payloadHash,
+          parent_issuer_region: 'us',
+          relationship: 'consumed_output',
+        },
+      ],
     };
   }
   return a;
@@ -41,6 +45,36 @@ function nodeHash(a: DirectAttestation): string {
     ...(a.provenance ? { provenance: a.provenance } : {}),
   });
   return hexEncode(sha256(bytes));
+}
+
+// Multi-parent node: emits new-shape provenance with N parent edges (a merge/fan-in).
+function nodeMulti(
+  id: string,
+  parents: { id: string; payloadHash: string }[],
+): DirectAttestation {
+  const a: DirectAttestation = {
+    rubric_version: '1.0',
+    attestation_type: 'direct',
+    attestation_id: id,
+    issuer_node_region: 'us',
+    issued_at: '2026-04-20T14:32:01Z',
+    payload: { step: id },
+    publicKey: 'placeholder',
+    signature: 'placeholder',
+    anchors: {
+      hcs: { topic_id: '0.0.1', tx_id: 't', consensus_timestamp: '0', sequence_number: 1 },
+      base: { contract_address: '0x0', tx_hash: '0x0', block_number: 1, block_timestamp: '0' },
+    },
+  };
+  a.provenance = {
+    parents: parents.map((pp) => ({
+      parent_attestation_id: pp.id,
+      parent_payload_hash: pp.payloadHash,
+      parent_issuer_region: 'us' as const,
+      relationship: 'aggregated_from' as const,
+    })),
+  };
+  return a;
 }
 
 const DUMMY_TA = {} as unknown as TrustAnchor;
@@ -168,5 +202,37 @@ describe('verifyChain — Layer 4 per-step verification', () => {
     const r = await verifyChain(goodChain() as Attestation[], DUMMY_TA, undefined, { verifyStep: stubVerifier(), expectedCount: 5 });
     expect(r.verified).toBe(false);
     expect(r.findings.some((f) => f.type === 'undersubmitted')).toBe(true);
+  });
+});
+
+
+describe('verifyChain — DAG multi-parent (fan-in / diamond)', () => {
+  it('verifies a diamond: A->B, A->C, {B,C}->D, single sink', async () => {
+    const a = node('A');
+    const b = node('B', { id: 'A', payloadHash: nodeHash(a) });
+    const c = node('C', { id: 'A', payloadHash: nodeHash(a) });
+    const d = nodeMulti('D', [
+      { id: 'B', payloadHash: nodeHash(b) },
+      { id: 'C', payloadHash: nodeHash(c) },
+    ]);
+    const r = await verifyChain([a, b, c, d] as Attestation[], DUMMY_TA, undefined, SKIP);
+    expect(r.verified).toBe(true);
+    expect(r.findings.filter((f) => f.type === 'break')).toEqual([]);
+    expect(r.step_count).toBe(4);
+    expect(r.head).toBe('A');
+    expect(r.tail).toBe('D');
+  });
+
+  it('detects a break when one parent edge of a merge binds a wrong hash', async () => {
+    const a = node('A');
+    const b = node('B', { id: 'A', payloadHash: nodeHash(a) });
+    const c = node('C', { id: 'A', payloadHash: nodeHash(a) });
+    const d = nodeMulti('D', [
+      { id: 'B', payloadHash: nodeHash(b) },
+      { id: 'C', payloadHash: 'f'.repeat(64) }, // wrong hash on the C edge
+    ]);
+    const r = await verifyChain([a, b, c, d] as Attestation[], DUMMY_TA, undefined, SKIP);
+    expect(r.verified).toBe(false);
+    expect(r.findings.some((f) => f.type === 'break' && f.attestation_id === 'D')).toBe(true);
   });
 });
