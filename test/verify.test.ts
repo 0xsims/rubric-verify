@@ -51,11 +51,11 @@ function genEd25519KeyPair(): { publicKey: Uint8Array; secretKey: Uint8Array } {
   return { publicKey: pk, secretKey: sk };
 }
 
-/** Sign a trust anchor: canonicalize without the signature field, Ed25519-sign. */
+/** Sign a trust anchor: canonicalize without the signature field, ML-DSA-65-sign. */
 function signTrustAnchor(ta: Omit<TrustAnchor, 'trust_anchor_signature'>, sk: Uint8Array): string {
   const c = canonicalize(ta);
   const msg = new TextEncoder().encode(c);
-  const sig = ed25519.sign(msg, sk);
+  const sig = ml_dsa65.sign(sk, msg);
   return hexEncode(sig);
 }
 
@@ -66,7 +66,7 @@ interface Fixture {
 }
 
 function buildFixture(): Fixture {
-  const founderKp = genEd25519KeyPair();
+  const founderKp = genMlDsaKeyPair();
   const us = genMlDsaKeyPair();
   const sg = genMlDsaKeyPair();
   const jp = genMlDsaKeyPair();

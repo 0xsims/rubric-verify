@@ -3,16 +3,16 @@
  *
  * The trust anchor is the root of trust: a hash-pinned, founder-signed bundle
  * of federation parameters. A verifier MUST validate the trust anchor's
- * Ed25519 signature BEFORE relying on any other field within it.
+ * ML-DSA-65 signature BEFORE relying on any other field within it.
  */
 
 import { canonicalize } from './canonical.js';
-import { ed25519Verify, base64Decode, hexDecode } from './crypto.js';
+import { mlDsa65Verify, base64Decode, hexDecode } from './crypto.js';
 import { VerificationInputError } from './errors.js';
 import type { TrustAnchor } from './types.js';
 
 /**
- * Validate the trust anchor's Ed25519 signature (spec §8.2 / §9.2).
+ * Validate the trust anchor's ML-DSA-65 signature (spec §8.2 / §9.2).
  *
  * The signature is computed over the canonical-form serialization of the
  * trust anchor with the `trust_anchor_signature` field omitted from the input.
@@ -38,7 +38,7 @@ export function validateTrustAnchorSignature(ta: TrustAnchor): boolean {
     return false;
   }
 
-  return ed25519Verify(founderKey, messageBytes, signatureBytes);
+  return mlDsa65Verify(founderKey, messageBytes, signatureBytes);
 }
 
 /**

@@ -1,0 +1,4 @@
+golden-vectors/
+*founder-key*.json
+*.signed.json
+*.unsigned.json
