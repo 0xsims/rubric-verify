@@ -89,6 +89,11 @@ export async function fetchHcsMessage(opts: FetchOptions): Promise<HcsMessage | 
 
   const chunks = new Map<number, Uint8Array>();
   let expectedTotal = -1;
+  // Ledger-attested anchoring time: the max consensus_timestamp across the
+  // record's chunks (when the full envelope became immutable). Network metadata,
+  // NOT the self-asserted env['consensus_timestamp'] — that distinction is the
+  // basis of suite downgrade defense (Layer 2).
+  let maxConsensus: string | null = null;
 
   for (let page = 0; page < MAX_PAGES && nextUrl; page++) {
     const body = await getJson(fetchFn, nextUrl, timeoutMs);
@@ -112,6 +117,10 @@ export async function fetchHcsMessage(opts: FetchOptions): Promise<HcsMessage | 
       const bytes = decodeB64(m['message']);
       if (!bytes) return null;
       chunks.set(number, bytes);
+      const cts = m['consensus_timestamp'];
+      if (typeof cts === 'string' && (maxConsensus === null || parseFloat(cts) > parseFloat(maxConsensus))) {
+        maxConsensus = cts;
+      }
     }
 
     if (expectedTotal > 0 && chunks.size >= expectedTotal) break;
@@ -153,7 +162,7 @@ export async function fetchHcsMessage(opts: FetchOptions): Promise<HcsMessage | 
   const ph = env['payload_hash'];
   if (typeof ph !== 'string' || ph.length === 0) return null;
 
-  return { payload_hash: ph, raw: env };
+  return { payload_hash: ph, consensus_timestamp: maxConsensus, raw: env };
 }
 
 function matchesInitialTx(ci: Record<string, unknown>, parsed: ParsedTxId): boolean {

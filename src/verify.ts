@@ -17,6 +17,7 @@ import {
   validateTrustAnchorSignature,
   assertWellFormedTrustAnchor,
 } from './trust-anchor.js';
+import { SUITE_ML_DSA_65 } from './crypto.js';
 import { verifyDirect } from './verify-direct.js';
 import { verifyTiered } from './verify-tiered.js';
 import { verifyThreshold } from './verify-threshold.js';
@@ -86,12 +87,32 @@ export async function verify(opts: VerifyOptions): Promise<VerifyResult> {
     );
   }
 
+  /* Suite binding: the attestation's algorithm suite MUST equal the selected
+   * anchor's bound suite. Both default to ML-DSA-65 (suite 1) for records and
+   * anchors emitted before suite binding existed. A mismatch is a hard fail —
+   * a verifier MUST NOT accept a record signed under a suite the anchor for its
+   * epoch did not authorize. */
+  const recordSuite = a.suite_id ?? SUITE_ML_DSA_65;
+  const anchorSuite = chosen.suite_id ?? SUITE_ML_DSA_65;
+  if (recordSuite !== anchorSuite) {
+    return failure(
+      a.attestation_id,
+      `algorithm suite mismatch: attestation=${recordSuite} anchor=${anchorSuite}`,
+      {
+        trust_anchor_signature_valid: true,
+        trust_anchor_temporally_applicable: true,
+        suite_matches_trust_anchor: false,
+      },
+    );
+  }
+
   /* §9.1 — Branch by attestation type. */
   const baseResult = await dispatchByType(a, chosen, access);
 
   // Stamp the trust-anchor diagnostic flags.
   baseResult.details.trust_anchor_signature_valid = true;
   baseResult.details.trust_anchor_temporally_applicable = true;
+  baseResult.details.suite_matches_trust_anchor = true;
   return baseResult;
 }
 
@@ -166,6 +187,9 @@ function assertWellFormedAttestation(a: unknown): asserts a is Attestation {
   }
   if (!obj['anchors'] || typeof obj['anchors'] !== 'object') {
     throw new VerificationInputError('attestation: anchors missing');
+  }
+  if ('suite_id' in obj && typeof obj['suite_id'] !== 'number') {
+    throw new VerificationInputError('attestation: suite_id must be a number when present');
   }
   const t = obj['attestation_type'];
   if (t !== 'direct' && t !== 'tiered' && t !== 'threshold') {

@@ -43,6 +43,38 @@ export function keccak256(data: Uint8Array): Uint8Array {
  * This mirrors spec §14.8 (truncated signature) which mandates `verified = false`
  * without invoking the verify primitive on malformed input.
  */
+/**
+ * Algorithm suite registry (mirrors Proof-side CURRENT_ALGORITHM_SUITE).
+ * See Rubric Protocol Specification v1.0 §3.4.1.
+ *
+ *   1 = ML-DSA-65 (FIPS 204) + SHA-256 (RFC 6234) + JCS canonicalization (RFC 8785)
+ *
+ * Successor suites append a new integer + a new dispatch case in
+ * `verifyForSuite`. Historical suites are never removed: a record signed
+ * under suite N must remain verifiable under suite N forever.
+ */
+export const SUITE_ML_DSA_65 = 1;
+
+/**
+ * Dispatch signature verification by algorithm suite id.
+ *
+ * Unknown suite ids return false (not throw) — a verifier that does not
+ * understand the suite an attestation claims MUST NOT pass it.
+ */
+export function verifyForSuite(
+  suiteId: number,
+  publicKey: Uint8Array,
+  message: Uint8Array,
+  signature: Uint8Array,
+): boolean {
+  switch (suiteId) {
+    case SUITE_ML_DSA_65:
+      return mlDsa65Verify(publicKey, message, signature);
+    default:
+      return false;
+  }
+}
+
 export function mlDsa65Verify(
   publicKey: Uint8Array,
   message: Uint8Array,

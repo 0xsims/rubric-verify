@@ -111,6 +111,16 @@ export interface AttestationBase {
   provenance?: AttestationProvenance;
   /** Optional evidence references (spec §5.5); signed sibling of payload when present. */
   evidence?: EvidenceRef[];
+  /**
+   * Algorithm suite this attestation was signed under (mirrors Proof-side
+   * rubricAlgorithmSuite / CURRENT_ALGORITHM_SUITE). MUST equal the selected
+   * trust anchor's suite_id. Optional for backward compat: a record emitted
+   * before suite binding is treated as suite 1 (ML-DSA-65), the only suite
+   * that has ever existed. NOTE: this default is safe ONLY while suite 1 is
+   * the strongest suite. When suite 2 ships, the consensus-time cross-check
+   * (Layer 2) MUST be in place to block forged-issued_at downgrade attacks.
+   */
+  suite_id?: number;
   /** Base64-encoded ML-DSA-65 public key (1952 bytes). */
   publicKey: string;
   /** Hex-encoded ML-DSA-65 signature (3293 bytes). */
@@ -158,6 +168,13 @@ export interface TrustAnchor {
   trust_anchor_version: number;
   protocol: 'rubric';
   network: 'mainnet' | 'testnet' | string;
+  /**
+   * Algorithm suite bound to this anchor epoch (see crypto.ts SUITE_* and
+   * Proof-side CURRENT_ALGORITHM_SUITE). An attestation selected against this
+   * anchor MUST declare the same suite; a mismatch fails verification.
+   * Optional for backward compat with pre-suite-binding anchors (treated as 1).
+   */
+  suite_id?: number;
   valid_from: string;
   /** Null if still current. */
   valid_until: string | null;
@@ -177,9 +194,9 @@ export interface TrustAnchor {
     genesis_ceremony_id: string;
     genesis_timestamp: string;
   };
-  /** Base64-encoded Ed25519 public key of the Rubric Founder Key. */
+  /** Base64-encoded ML-DSA-65 public key of the Rubric Founder Key. */
   founder_key_public: string;
-  /** Hex-encoded Ed25519 signature over the canonicalized trust anchor. */
+  /** Hex-encoded ML-DSA-65 signature over the canonicalized trust anchor. */
   trust_anchor_signature: string;
 }
 
@@ -198,6 +215,10 @@ export interface VerifyDetails {
   trust_anchor_signature_valid?: boolean;
   /** True if the trust anchor's [valid_from, valid_until] window covers `issued_at`. */
   trust_anchor_temporally_applicable?: boolean;
+  /** True if the attestation's algorithm suite matches the selected anchor's bound suite. */
+  suite_matches_trust_anchor?: boolean;
+  /** True if the LEDGER consensus timestamp falls within the selected anchor's window (suite downgrade defense). */
+  consensus_time_within_anchor?: boolean;
 }
 
 /** Top-level verification result per spec §9. */
@@ -264,6 +285,8 @@ export interface VerifyOptions {
  */
 export interface HcsMessage {
   payload_hash: string;
+  /** Ledger-attested max consensus timestamp across the record's chunks (RFC seconds.nanos). Null if unavailable. */
+  consensus_timestamp?: string | null;
   /** Echoed from the mirror node's response, useful for diagnostics. */
   raw?: unknown;
 }

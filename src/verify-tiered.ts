@@ -18,7 +18,7 @@ import {
 import { fetchHcsMessage } from './anchors/hcs.js';
 import { fetchBaseAnchor } from './anchors/base.js';
 import { merkleLeaf, verifyMerkleProof } from './merkle.js';
-import { computeAnchorOk } from './verify-direct.js';
+import { computeAnchorOk, checkConsensusSuiteWindow } from './verify-direct.js';
 import type {
   AnchorAccess,
   TieredAttestation,
@@ -110,6 +110,10 @@ export async function verifyTiered(
     failures.push('HCS anchor mismatch with batch_root');
   }
 
+  /* Layer 2 — suite downgrade defense (consensus-time cross-check). */
+  const l2 = checkConsensusSuiteWindow(ta, hcs, details);
+  if (l2) failures.push(l2);
+
   const base = await fetchBaseAnchor({
     baseRpc: access.baseRpc,
     contractAddress: ta.base.anchor_contract,
@@ -135,7 +139,8 @@ export async function verifyTiered(
     !!details.merkle_proof_valid &&
     !!details.signature_valid &&
     !!details.public_key_matches_trust_anchor &&
-    computeAnchorOk(details, access.allowSingleAnchor);
+    computeAnchorOk(details, access.allowSingleAnchor) &&
+    !l2;
 
   return { verified, attestation_id: a.attestation_id, details, failures };
 }

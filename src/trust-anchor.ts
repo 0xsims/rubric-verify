@@ -49,6 +49,33 @@ export function validateTrustAnchorSignature(ta: TrustAnchor): boolean {
  *
  * Returns false if either timestamp is malformed.
  */
+/**
+ * Layer 2 (suite downgrade defense): does the LEDGER-attested consensus
+ * timestamp fall within this anchor's [valid_from, valid_until] window?
+ *
+ * Unlike trustAnchorCoversTime (which trusts the record's self-asserted
+ * issued_at), `consensusTimestamp` comes from Hedera network metadata and
+ * cannot be backdated by the signer. A record that lied about issued_at to
+ * select a weaker-suite anchor will have a consensus timestamp OUTSIDE that
+ * anchor's window — this is how the forged-issued_at downgrade is caught.
+ *
+ * `consensusTimestamp` is "<seconds>.<nanos>"; convert to ms for comparison.
+ * Returns false if the timestamp is missing or malformed (fail closed).
+ */
+export function consensusTimeWithinAnchor(ta: TrustAnchor, consensusTimestamp: string | null | undefined): boolean {
+  if (!consensusTimestamp) return false;
+  const secs = parseFloat(consensusTimestamp);
+  if (Number.isNaN(secs)) return false;
+  const t = secs * 1000;
+  const from = Date.parse(ta.valid_from);
+  if (Number.isNaN(from)) return false;
+  if (t < from) return false;
+  if (ta.valid_until === null) return true;
+  const until = Date.parse(ta.valid_until);
+  if (Number.isNaN(until)) return false;
+  return t <= until;
+}
+
 export function trustAnchorCoversTime(ta: TrustAnchor, issuedAt: string): boolean {
   const issued = Date.parse(issuedAt);
   const from = Date.parse(ta.valid_from);

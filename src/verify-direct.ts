@@ -13,6 +13,7 @@ import {
 } from './crypto.js';
 import { fetchHcsMessage } from './anchors/hcs.js';
 import { fetchBaseAnchor } from './anchors/base.js';
+import { consensusTimeWithinAnchor } from './trust-anchor.js';
 import type {
   AnchorAccess,
   DirectAttestation,
@@ -87,6 +88,10 @@ export async function verifyDirect(
     failures.push('HCS anchor not found or payload hash mismatch');
   }
 
+  /* Layer 2 — suite downgrade defense (consensus-time cross-check). */
+  const l2 = checkConsensusSuiteWindow(ta, hcs, details);
+  if (l2) failures.push(l2);
+
   /* §9.3.4 — Verify Base anchor. */
   const base = await fetchBaseAnchor({
     baseRpc: access.baseRpc,
@@ -116,7 +121,8 @@ export async function verifyDirect(
   const verified =
     !!details.signature_valid &&
     !!details.public_key_matches_trust_anchor &&
-    anchorOk;
+    anchorOk &&
+    !l2;
 
   return finalize(a.attestation_id, verified, details, failures);
 }
@@ -127,6 +133,32 @@ export async function verifyDirect(
  *   - If both anchors returned data, their reported hashes must agree.
  *   - If `allowSingleAnchor` is false, both MUST confirm.
  */
+/**
+ * Layer 2 suite downgrade defense. Cross-checks the LEDGER consensus timestamp
+ * against the selected anchor's window and stamps `consensus_time_within_anchor`.
+ *
+ * Returns a failure string if this constitutes a HARD fail, else null.
+ *
+ * Hard-fail policy: only when the selected anchor carries an explicit suite_id.
+ * While anchors omit suite_id (single-suite era), the check is DIAGNOSTIC ONLY —
+ * benign signing-to-anchoring latency must not fail honest records. The gate
+ * arms automatically the moment a suite-bound (suite_id present) anchor exists,
+ * which is exactly when downgrade becomes possible.
+ */
+export function checkConsensusSuiteWindow(
+  ta: TrustAnchor,
+  hcs: { consensus_timestamp?: string | null } | null,
+  details: VerifyDetails,
+): string | null {
+  if (!details.hcs_anchor_confirmed || hcs == null) return null;
+  const within = consensusTimeWithinAnchor(ta, hcs.consensus_timestamp);
+  details.consensus_time_within_anchor = within;
+  if (ta.suite_id !== undefined && !within) {
+    return 'ledger consensus timestamp falls outside the selected anchor window (suite downgrade defense)';
+  }
+  return null;
+}
+
 export function computeAnchorOk(d: VerifyDetails, allowSingleAnchor: boolean): boolean {
   const hcs = !!d.hcs_anchor_confirmed;
   const base = !!d.base_anchor_confirmed;

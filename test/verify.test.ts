@@ -16,7 +16,6 @@
  */
 
 import { ml_dsa65 } from '@noble/post-quantum/ml-dsa';
-import { ed25519 } from '@noble/curves/ed25519';
 import { randomBytes } from '@noble/hashes/utils';
 
 import { canonicalize, canonicalizeBytes } from '../src/canonical.js';
@@ -45,12 +44,6 @@ function genMlDsaKeyPair(): { publicKey: Uint8Array; secretKey: Uint8Array } {
   return { publicKey: kp.publicKey, secretKey: kp.secretKey };
 }
 
-function genEd25519KeyPair(): { publicKey: Uint8Array; secretKey: Uint8Array } {
-  const sk = randomBytes(32);
-  const pk = ed25519.getPublicKey(sk);
-  return { publicKey: pk, secretKey: sk };
-}
-
 /** Sign a trust anchor: canonicalize without the signature field, ML-DSA-65-sign. */
 function signTrustAnchor(ta: Omit<TrustAnchor, 'trust_anchor_signature'>, sk: Uint8Array): string {
   const c = canonicalize(ta);
@@ -63,6 +56,7 @@ interface Fixture {
   trustAnchor: TrustAnchor;
   perNodeKeys: Record<string, { publicKey: Uint8Array; secretKey: Uint8Array }>;
   thresholdKey: { publicKey: Uint8Array; secretKey: Uint8Array };
+  founderKp: { publicKey: Uint8Array; secretKey: Uint8Array };
 }
 
 function buildFixture(): Fixture {
@@ -114,6 +108,7 @@ function buildFixture(): Fixture {
     trustAnchor,
     perNodeKeys: { us, sg, jp, ca, eu },
     thresholdKey: threshold,
+    founderKp,
   };
 }
 
@@ -419,6 +414,7 @@ function makeStubFetch(opts: {
   hcsPayloadHashHex: string | null;
   baseAggregateRootHex: string | null;
   issuerRegion?: 'us' | 'sg' | 'jp' | 'ca' | 'eu';
+  consensusTimestamp?: string;
 }): typeof fetch {
   const eventTopic =
     '0x' + hexEncode(keccak256(new TextEncoder().encode('AnchorStored(uint256,bytes32,string,uint64,uint64)')));
@@ -463,6 +459,7 @@ function makeStubFetch(opts: {
               total: 1,
             },
             message: messageB64,
+            consensus_timestamp: opts.consensusTimestamp ?? '1714000000.500000000',
           },
         ],
         links: { next: null },
@@ -882,5 +879,156 @@ describe('verify (end-to-end)', () => {
     });
     expect(result.verified).toBe(false);
     expect(result.details.trust_anchor_temporally_applicable).toBe(false);
+  });
+});
+
+
+describe('suite binding (temporal algorithm-suite enforcement)', () => {
+  it('verifies when attestation suite matches anchor suite (explicit suite 1)', async () => {
+    const fixture = buildFixture();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fixture);
+    const att: DirectAttestation = { ...attestation, suite_id: 1 };
+    const result = await verify({
+      attestation: att,
+      trustAnchor: fixture.trustAnchor,
+      access: {
+        hederaMirror: 'https://stub',
+        baseRpc: 'https://stub',
+        fetch: makeStubFetch({
+          hcsPayloadHashHex: payloadHashHex,
+          baseAggregateRootHex: payloadHashHex,
+        }),
+      },
+    });
+    expect(result.verified).toBe(true);
+    expect(result.details.suite_matches_trust_anchor).toBe(true);
+  });
+
+  it('rejects when attestation suite does not match anchor suite (downgrade defense)', async () => {
+    const fixture = buildFixture();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fixture);
+    // Anchor omits suite_id -> defaults to 1. Attestation claims suite 2.
+    const att: DirectAttestation = { ...attestation, suite_id: 2 };
+    const result = await verify({
+      attestation: att,
+      trustAnchor: fixture.trustAnchor,
+      access: {
+        hederaMirror: 'https://stub',
+        baseRpc: 'https://stub',
+        fetch: makeStubFetch({
+          hcsPayloadHashHex: payloadHashHex,
+          baseAggregateRootHex: payloadHashHex,
+        }),
+      },
+    });
+    expect(result.verified).toBe(false);
+    expect(result.details.suite_matches_trust_anchor).toBe(false);
+  });
+
+  it('verifies when both attestation and anchor omit suite_id (back-compat default to 1)', async () => {
+    const fixture = buildFixture();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fixture);
+    const result = await verify({
+      attestation,
+      trustAnchor: fixture.trustAnchor,
+      access: {
+        hederaMirror: 'https://stub',
+        baseRpc: 'https://stub',
+        fetch: makeStubFetch({
+          hcsPayloadHashHex: payloadHashHex,
+          baseAggregateRootHex: payloadHashHex,
+        }),
+      },
+    });
+    expect(result.verified).toBe(true);
+    expect(result.details.suite_matches_trust_anchor).toBe(true);
+  });
+});
+
+
+describe('Layer 2 (consensus-time suite downgrade defense)', () => {
+  // Record issued_at = 2026-04-20T14:32:01Z (epoch ~1776695521).
+  const IN_WINDOW_CTS = '1776695521.000000000';   // 2026-04-20, inside [Jan1,May1]
+  const OUT_WINDOW_CTS = '1779000000.000000000';   // 2026-05-12, AFTER May 1
+
+  function suiteBoundClosedAnchor(fixture: Fixture): TrustAnchor {
+    const { trust_anchor_signature: _s, ...base } = fixture.trustAnchor;
+    void _s;
+    const rebound = {
+      ...base,
+      valid_from: '2026-01-01T00:00:00Z',
+      valid_until: '2026-05-01T00:00:00Z',
+      suite_id: 1,
+    } as Omit<TrustAnchor, 'trust_anchor_signature'>;
+    const sig = signTrustAnchor(rebound, fixture.founderKp.secretKey);
+    return { ...rebound, trust_anchor_signature: sig };
+  }
+
+  it('hard-fails when ledger consensus time is outside a suite-bound anchor window (downgrade caught)', async () => {
+    const fixture = buildFixture();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fixture);
+    const anchor = suiteBoundClosedAnchor(fixture);
+    const result = await verify({
+      attestation,
+      trustAnchor: anchor,
+      access: {
+        hederaMirror: 'https://stub',
+        baseRpc: 'https://stub',
+        allowSingleAnchor: true,
+        fetch: makeStubFetch({
+          hcsPayloadHashHex: payloadHashHex,
+          baseAggregateRootHex: payloadHashHex,
+          consensusTimestamp: OUT_WINDOW_CTS,
+        }),
+      },
+    });
+    expect(result.verified).toBe(false);
+    expect(result.details.consensus_time_within_anchor).toBe(false);
+    expect(result.details.signature_valid).toBe(true);
+    expect(result.details.hcs_anchor_confirmed).toBe(true);
+  });
+
+  it('passes when ledger consensus time is inside the suite-bound anchor window', async () => {
+    const fixture = buildFixture();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fixture);
+    const anchor = suiteBoundClosedAnchor(fixture);
+    const result = await verify({
+      attestation,
+      trustAnchor: anchor,
+      access: {
+        hederaMirror: 'https://stub',
+        baseRpc: 'https://stub',
+        allowSingleAnchor: true,
+        fetch: makeStubFetch({
+          hcsPayloadHashHex: payloadHashHex,
+          baseAggregateRootHex: payloadHashHex,
+          consensusTimestamp: IN_WINDOW_CTS,
+        }),
+      },
+    });
+    expect(result.verified).toBe(true);
+    expect(result.details.consensus_time_within_anchor).toBe(true);
+  });
+
+  it('stays diagnostic-only (does NOT fail verdict) when anchor omits suite_id, even if consensus time is out of window', async () => {
+    const fixture = buildFixture();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fixture);
+    // fixture.trustAnchor has valid_until=null and NO suite_id -> gate inert.
+    const result = await verify({
+      attestation,
+      trustAnchor: fixture.trustAnchor,
+      access: {
+        hederaMirror: 'https://stub',
+        baseRpc: 'https://stub',
+        allowSingleAnchor: true,
+        fetch: makeStubFetch({
+          hcsPayloadHashHex: payloadHashHex,
+          baseAggregateRootHex: payloadHashHex,
+          consensusTimestamp: '1700000000.000000000',
+        }),
+      },
+    });
+    expect(result.verified).toBe(true);
+    expect(result.details.consensus_time_within_anchor).toBe(false);
   });
 });
