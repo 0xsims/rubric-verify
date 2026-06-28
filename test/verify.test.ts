@@ -116,6 +116,7 @@ function buildDirectAttestation(
   fixture: Fixture,
   region: 'us' | 'sg' | 'jp' | 'ca' | 'eu' = 'us',
   payload: unknown = { decision: 'approved', actor: 'model-v1' },
+  issuedAt: string = '2026-04-20T14:32:01Z',
 ): { attestation: DirectAttestation; payloadHashHex: string } {
   const node = fixture.perNodeKeys[region]!;
   const a: Omit<DirectAttestation, 'signature'> = {
@@ -123,7 +124,7 @@ function buildDirectAttestation(
     attestation_type: 'direct',
     attestation_id: 'att_2026_04_20_a1b2c3d4',
     issuer_node_region: region,
-    issued_at: '2026-04-20T14:32:01Z',
+    issued_at: issuedAt,
     payload,
     publicKey: base64Encode(node.publicKey),
     anchors: {
@@ -1032,3 +1033,65 @@ describe('Layer 2 (consensus-time suite downgrade defense)', () => {
     expect(result.details.consensus_time_within_anchor).toBe(false);
   });
 });
+
+
+describe('trust-anchor set / key-history (rc3 \u00a78.3, \u00a78.6)', () => {
+  // Two-anchor key-history set signed by the SAME founder key, with a per-node (us) oracle
+  // key rotation at boundary T. v1 covers [Jan1, T); v2 covers [T, null) with a rotated us key.
+  const BOUNDARY = '2026-06-14T17:30:00.000Z';
+
+  function buildKeyHistorySet() {
+    const fx = buildFixture();
+    const v1Base = { ...fx.trustAnchor, valid_from: '2026-01-01T00:00:00Z', valid_until: BOUNDARY } as any;
+    delete v1Base.trust_anchor_signature;
+    const v1 = { ...v1Base, trust_anchor_signature: signTrustAnchor(v1Base, fx.founderKp.secretKey) } as TrustAnchor;
+    const newUs = genMlDsaKeyPair();
+    const v2Base = {
+      ...fx.trustAnchor, trust_anchor_version: 2, valid_from: BOUNDARY, valid_until: null,
+      federation: { ...fx.trustAnchor.federation,
+        per_node_public_keys: { ...fx.trustAnchor.federation.per_node_public_keys, us: base64Encode(newUs.publicKey) } },
+    } as any;
+    delete v2Base.trust_anchor_signature;
+    const v2 = { ...v2Base, trust_anchor_signature: signTrustAnchor(v2Base, fx.founderKp.secretKey) } as TrustAnchor;
+    return { fx, v1, v2, newUs };
+  }
+
+  it('\u00a714.A1 \u2014 attestation issued before the boundary verifies against the predecessor anchor (old per-node key)', async () => {
+    const { fx, v1, v2 } = buildKeyHistorySet();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fx); // default 2026-04-20 is in v1 window
+    const result = await verify({ attestation, trustAnchor: [v1, v2],
+      access: { hederaMirror: 'https://stub', baseRpc: 'https://stub',
+        fetch: makeStubFetch({ hcsPayloadHashHex: payloadHashHex, baseAggregateRootHex: payloadHashHex }) } });
+    expect(result.verified).toBe(true);
+    expect(result.details.trust_anchor_temporally_applicable).toBe(true);
+  });
+
+  it('\u00a714.A2 \u2014 attestation issued exactly at boundary T selects the successor anchor (latest valid_from <= issued_at)', async () => {
+    const { fx, v1, v2, newUs } = buildKeyHistorySet();
+    const fxV2 = { ...fx, perNodeKeys: { ...fx.perNodeKeys, us: newUs } } as Fixture;
+    const { attestation, payloadHashHex } = buildDirectAttestation(fxV2, 'us', { decision: 'approved', actor: 'model-v1' }, BOUNDARY);
+    const result = await verify({ attestation, trustAnchor: [v1, v2],
+      access: { hederaMirror: 'https://stub', baseRpc: 'https://stub',
+        fetch: makeStubFetch({ hcsPayloadHashHex: payloadHashHex, baseAggregateRootHex: payloadHashHex }) } });
+    expect(result.verified).toBe(true);
+  });
+
+  it('\u00a714.A3 \u2014 durability: an old-key attestation still verifies against the set AFTER rotation (no orphaning)', async () => {
+    const { fx, v1, v2 } = buildKeyHistorySet();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fx, 'us', { decision: 'approved', actor: 'model-v1' }, '2026-05-19T19:25:43.816Z');
+    const result = await verify({ attestation, trustAnchor: [v1, v2],
+      access: { hederaMirror: 'https://stub', baseRpc: 'https://stub',
+        fetch: makeStubFetch({ hcsPayloadHashHex: payloadHashHex, baseAggregateRootHex: payloadHashHex }) } });
+    expect(result.verified).toBe(true);
+  });
+
+  it('\u00a714.A4 \u2014 a single-object anchor is accepted as a one-element set (back-compat)', async () => {
+    const fx = buildFixture();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fx);
+    const result = await verify({ attestation, trustAnchor: fx.trustAnchor,
+      access: { hederaMirror: 'https://stub', baseRpc: 'https://stub',
+        fetch: makeStubFetch({ hcsPayloadHashHex: payloadHashHex, baseAggregateRootHex: payloadHashHex }) } });
+    expect(result.verified).toBe(true);
+  });
+});
+
