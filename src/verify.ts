@@ -21,6 +21,7 @@ import { SUITE_ML_DSA_65 } from './crypto.js';
 import { verifyDirect } from './verify-direct.js';
 import { verifyTiered } from './verify-tiered.js';
 import { verifyThreshold } from './verify-threshold.js';
+import { verifyThresholdMultisig } from './verify-threshold-multisig.js';
 import { VerificationInputError } from './errors.js';
 import type {
   AnchorAccess,
@@ -106,6 +107,13 @@ export async function verify(opts: VerifyOptions): Promise<VerifyResult> {
     );
   }
 
+  /* Network-endpoint fallback: if the caller supplied no mirror/RPC, inherit
+   * the selected anchor's declared defaults so external default-access
+   * verification works without hand-configuring endpoints. Applies to all
+   * attestation types (the dispatch below). */
+  if (!access.hederaMirror) access.hederaMirror = chosen.hedera?.mirror_node_default ?? '';
+  if (!access.baseRpc) access.baseRpc = chosen.base?.rpc_default ?? '';
+
   /* §9.1 — Branch by attestation type. */
   const baseResult = await dispatchByType(a, chosen, access);
 
@@ -128,6 +136,8 @@ async function dispatchByType(
       return verifyTiered(a, ta, access);
     case 'threshold':
       return verifyThreshold(a, ta, access);
+    case 'threshold-multisig':
+      return verifyThresholdMultisig(a, ta, access);
     default:
       // Discriminated union exhaustiveness; runtime guard for non-TS callers.
       return failure(
@@ -169,15 +179,17 @@ function assertWellFormedAttestation(a: unknown): asserts a is Attestation {
     throw new VerificationInputError('attestation must be an object');
   }
   const obj = a as Record<string, unknown>;
-  for (const k of [
+  const baseFields = [
     'rubric_version',
     'attestation_type',
     'attestation_id',
     'issuer_node_region',
     'issued_at',
-    'publicKey',
-    'signature',
-  ]) {
+  ];
+  // threshold-multisig carries signatures[] instead of a single publicKey/signature.
+  const isMultisig = obj['attestation_type'] === 'threshold-multisig';
+  const requiredStrings = isMultisig ? baseFields : [...baseFields, 'publicKey', 'signature'];
+  for (const k of requiredStrings) {
     if (typeof obj[k] !== 'string') {
       throw new VerificationInputError(`attestation: required string "${k}" missing/invalid`);
     }
@@ -192,8 +204,16 @@ function assertWellFormedAttestation(a: unknown): asserts a is Attestation {
     throw new VerificationInputError('attestation: suite_id must be a number when present');
   }
   const t = obj['attestation_type'];
-  if (t !== 'direct' && t !== 'tiered' && t !== 'threshold') {
+  if (t !== 'direct' && t !== 'tiered' && t !== 'threshold' && t !== 'threshold-multisig') {
     throw new VerificationInputError(`attestation: unsupported type "${String(t)}"`);
+  }
+  if (t === 'threshold-multisig') {
+    if (!Array.isArray(obj['signatures']) || (obj['signatures'] as unknown[]).length === 0) {
+      throw new VerificationInputError('threshold-multisig attestation missing signatures[]');
+    }
+    if (!obj['quorum'] || typeof obj['quorum'] !== 'object') {
+      throw new VerificationInputError('threshold-multisig attestation missing quorum');
+    }
   }
   if (t === 'tiered') {
     if (!Array.isArray(obj['merkle_proof']) || !Array.isArray(obj['merkle_proof_directions'])) {

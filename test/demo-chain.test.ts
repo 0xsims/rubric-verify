@@ -66,8 +66,9 @@ function buildStep(
 
 async function realVerifyStep(a: Attestation): Promise<StepVerifyResult> {
   try {
-    const msg = canonBytes(a as DirectAttestation);
-    const ok = mlDsa65Verify(base64Decode(a.publicKey), msg, hexDecode(a.signature));
+    const ad = a as DirectAttestation;
+    const msg = canonBytes(ad);
+    const ok = mlDsa65Verify(base64Decode(ad.publicKey), msg, hexDecode(ad.signature));
     return {
       verified: ok,
       details: { signature_valid: ok, hcs_anchor_confirmed: true, base_anchor_confirmed: true },

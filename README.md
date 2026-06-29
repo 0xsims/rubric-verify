@@ -1,4 +1,6 @@
-# @rubric/verify
+# @rubric-protocol/verify
+
+> **Preview release (1.0.0-rc.2).** This is an early preview published under the `next` dist-tag, not the production `1.0.0`. It verifies **real** Rubric attestations: ML-DSA-65 signature, oracle-key match against a founder-signed trust anchor, and HCS anchor confirmation against the public Hedera mainnet mirror node. Current preview limitations, by design: the trust anchor is a **staging** anchor (single oracle key; per-node key independence and the irreversible mainnet trust-anchor genesis ceremony are pending), and **Base anchoring is disabled pre-revenue** (HCS-only confirmation; single-anchor mode). The production `1.0.0` will ship after the mainnet genesis ceremony with full dual-anchor confirmation. The verification *algorithm* below is complete and final; only the trust-anchor maturity differs.
 
 Reference TypeScript implementation of the **Rubric Attestation Verification Specification v1.0.0**.
 
@@ -22,7 +24,7 @@ this one when given identical inputs.
 ## Install
 
 ```bash
-npm install @rubric/verify
+npm install @rubric-protocol/verify
 ```
 
 Requires Node ≥ 18 (uses built-in `fetch`).
@@ -32,7 +34,7 @@ Requires Node ≥ 18 (uses built-in `fetch`).
 ## Quick start
 
 ```ts
-import { verify } from '@rubric/verify';
+import { verify } from '@rubric-protocol/verify';
 
 const attestation = /* fetched from your Rubric customer artifact */;
 const trustAnchor = /* the published Rubric trust anchor for mainnet */;
@@ -110,7 +112,7 @@ import {
   verifyMerkleProof,             // raw inclusion proof check (§7.4)
   merkleLeaf,                    // SHA-256(canonical_message) (§7.1)
   merkleInternal,                // SHA-256(0x01 || L || R) (§7.2)
-} from '@rubric/verify';
+} from '@rubric-protocol/verify';
 ```
 
 All public types are re-exported from the entry point.

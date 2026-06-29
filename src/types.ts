@@ -11,7 +11,7 @@
 export type NodeRegion = 'us' | 'sg' | 'jp' | 'ca' | 'eu';
 
 /** Attestation type discriminator per spec §5.1. */
-export type AttestationType = 'direct' | 'tiered' | 'threshold';
+export type AttestationType = 'direct' | 'tiered' | 'threshold' | 'threshold-multisig';
 
 /** Merkle proof step direction per spec §7.4. */
 export type MerkleDirection = 'L' | 'R';
@@ -158,7 +158,35 @@ export interface ThresholdAttestation extends AttestationBase {
 }
 
 /** Discriminated union of all attestation forms. */
-export type Attestation = DirectAttestation | TieredAttestation | ThresholdAttestation;
+export interface QuorumDescriptor {
+  policy: 'M-of-N';
+  m: number;
+  n: number;
+  signer_regions: string[];
+}
+
+export interface NodeSignature {
+  region: string;
+  publicKey: string;
+  signature: string;
+}
+
+export interface ThresholdMultisigAttestation {
+  rubric_version: string;
+  attestation_type: 'threshold-multisig';
+  attestation_id: string;
+  issuer_node_region: NodeRegion;
+  issued_at: string;
+  payload: AttestationPayload;
+  provenance?: AttestationProvenance;
+  evidence?: EvidenceRef[];
+  suite_id?: number;
+  quorum: QuorumDescriptor;
+  signatures: NodeSignature[];
+  anchors: Anchors;
+}
+
+export type Attestation = DirectAttestation | TieredAttestation | ThresholdAttestation | ThresholdMultisigAttestation;
 
 /**
  * Trust anchor: hash-pinned, founder-signed bundle of federation parameters per spec §8.
@@ -190,6 +218,8 @@ export interface TrustAnchor {
   federation: {
     per_node_public_keys: Record<NodeRegion, string>;
     threshold_public_key: string;
+    /** M-of-N multi-signature quorum policy. */
+    threshold_policy?: { m: number; n: number };
     keylist_aggregate_hash: string;
     genesis_ceremony_id: string;
     genesis_timestamp: string;
@@ -211,6 +241,10 @@ export interface VerifyDetails {
   anchor_roots_match?: boolean;
   merkle_proof_valid?: boolean;
   threshold_keylist_hash_matches?: boolean;
+  /** True if M-of-N quorum satisfied (threshold-multisig). */
+  quorum_satisfied?: boolean;
+  /** Recomputed canonical-message hash (threshold-multisig); cross-checked vs HCS. */
+  expected_payload_hash?: string;
   /** True if the trust anchor signature itself was validated. */
   trust_anchor_signature_valid?: boolean;
   /** True if the trust anchor's [valid_from, valid_until] window covers `issued_at`. */

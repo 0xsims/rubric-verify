@@ -17,6 +17,7 @@
  */
 
 export { verify } from './verify.js';
+export { verifyThresholdMultisig } from './verify-threshold-multisig.js';
 
 export { verifyChain } from './verify-chain.js';
 export type {
@@ -53,6 +54,9 @@ export type {
   DirectAttestation,
   TieredAttestation,
   ThresholdAttestation,
+  ThresholdMultisigAttestation,
+  QuorumDescriptor,
+  NodeSignature,
   Anchors,
   HcsAnchor,
   BaseAnchor,
@@ -71,4 +75,5 @@ export type {
 export const SPEC_VERSION = '1.0.0';
 
 /** Implementation version. */
-export const VERSION = '1.0.0-rc.1';
+export const VERSION = '1.0.0-rc.6';
+export * from './spec-signature.js';
