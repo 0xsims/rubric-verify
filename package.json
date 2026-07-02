@@ -1,6 +1,6 @@
 {
   "name": "@rubric-protocol/verify",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Offline verifier for Rubric Protocol attestations. Verifies ML-DSA-65 signatures, provenance chains, and HCS ledger anchors independently — no Rubric infrastructure required.",
   "type": "module",
   "bin": {

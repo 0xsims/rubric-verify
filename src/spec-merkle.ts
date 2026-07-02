@@ -19,7 +19,12 @@
 
 import { createHash } from "crypto";
 import { canonicalize } from "./canonical.js";
-import type { ModelRef, AttestationProvenance, EvidenceRef, IssuerNodeRegion } from "./bundle-types.js";
+// Offline port: bundle-types dependency severed — structural aliases suffice
+// for a verifier that treats records as data, not domain objects.
+type ModelRef = Record<string, unknown>;
+type AttestationProvenance = Record<string, unknown>;
+type EvidenceRef = Record<string, unknown>;
+type IssuerNodeRegion = string;
 
 /** Customer-ASSERTED compliance metadata, §5.7 (proposed). Witness-agnostic:
  *  Rubric attests that the customer stated these values — never that the
