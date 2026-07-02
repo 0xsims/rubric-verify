@@ -1,0 +1,35 @@
+{
+  "name": "@rubric-protocol/verify",
+  "version": "0.1.0",
+  "description": "Offline verifier for Rubric Protocol attestations. Verifies ML-DSA-65 signatures, provenance chains, and HCS ledger anchors independently — no Rubric infrastructure required.",
+  "type": "module",
+  "bin": {
+    "rubric-verify": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "verify": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@noble/post-quantum": "^0.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "license": "Apache-2.0",
+  "repository": "github:0xsims/rubric-verify",
+  "keywords": [
+    "attestation",
+    "post-quantum",
+    "ml-dsa",
+    "hedera",
+    "ai-compliance",
+    "verification"
+  ]
+}
