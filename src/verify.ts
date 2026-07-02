@@ -6,6 +6,7 @@
 import { ml_dsa65 } from "@noble/post-quantum/ml-dsa";
 import { createHash } from "crypto";
 import { canonicalize } from "./canonical.js";
+import { verifyTieredAttestation } from "./tiered-verify.js";
 import type { TrustAnchor } from "./trust.js";
 
 export interface VerifyResult {
@@ -17,7 +18,25 @@ export interface VerifyResult {
 export function verifyRecord(record: any, anchor: TrustAnchor): VerifyResult {
   if (!record || typeof record !== "object") return { verified: false, reason: "no record" };
   const type = record.attestation_type;
-  if (type === "tiered") return { verified: false, reason: "tiered attestation verification not yet supported offline (Phase 6)" };
+  if (type === "tiered") {
+    // Phase 6 self-contained shape: full stub (leafMessage + merkle proof)
+    // plus embedded signed tier-1 envelope. Anything less is refused honestly.
+    const stub = record.stub ?? (record.leafMessage ? record : null);
+    const t1 = record.tier1 ?? null;
+    if (!stub || !t1) {
+      return { verified: false, reason: "tiered record lacks embedded proof material (pre-Phase-6 shape)" };
+    }
+    // The envelope publicKey must match the ANCHORED key for the issuer region —
+    // same rule as direct records; embedded keys are never trusted directly.
+    const region = String(record.issuer_node_region ?? "").toLowerCase();
+    const expected = anchor.federation.per_node_public_keys[region];
+    if (!expected) return { verified: false, reason: `no anchored key for region "${region}"`, keyMatchesAnchor: false };
+    if (expected !== t1.publicKey) {
+      return { verified: false, reason: `tier-1 envelope publicKey does not match the anchored key for region "${region}"`, keyMatchesAnchor: false };
+    }
+    const r = verifyTieredAttestation(stub, t1);
+    return { verified: r.verified, reason: r.reason ?? "tiered: leaf re-derived, inclusion proven, envelope signature valid; key matches trust anchor", keyMatchesAnchor: true };
+  }
   if (!record.attestation_id || !record.signature || !record.publicKey) {
     return { verified: false, reason: "record missing attestation_id, signature, or publicKey" };
   }
