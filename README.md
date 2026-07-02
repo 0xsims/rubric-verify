@@ -5,6 +5,12 @@ Verifies ML-DSA-65 (NIST FIPS 204) signatures, decision-provenance chains, and
 Hedera ledger anchors **independently — no Rubric infrastructure in the trust path.**
 
 ```
+npx @rubric-protocol/verify 187db855-7fc7-4dff-87c7-77bd953b813d
+```
+
+Or, to inspect the source before running anything:
+
+```
 git clone https://github.com/0xsims/rubric-verify
 cd rubric-verify && npm install && npm run build
 node dist/cli.js 187db855-7fc7-4dff-87c7-77bd953b813d
