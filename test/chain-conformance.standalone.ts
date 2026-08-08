@@ -106,7 +106,7 @@ ck("A.5 direct probe",
   for (let n = 1; n <= 16; n++) {
     const ds = Array.from({ length: n }, (_, i) => chainLeafDigest("SESSION_EVENT", { x: i }));
     const t = buildChainTree(ds);
-    for (let i = 0; i < n; i++) if (chainFold(ds[i], t.proof(i)) !== t.root) ok = false;
+    for (let i = 0; i < n; i++) if (chainFold(ds[i]!, t.proof(i)) !== t.root) ok = false;
   }
   ck("proof soundness n=1..16 all indices", ok, true);
 }
