@@ -277,3 +277,85 @@ reproduce production tiered or session anchors (SHA3-256, §4.7) and is
 deprecated in favor of 2.x, whose chain conformance is enforced by
 `test/chain-conformance.standalone.ts` against the normative vectors of
 Appendix A. 1.x remains correct only for the surfaces its own vectors cover.
+
+---
+
+## §9.8 (NEW) — Session boundaries and cross-session linkage
+
+### 9.8.1 What defines a session
+
+A session is an accountability bracket, not a cryptographic primitive. The
+protocol does not define where agent activity begins or ends — it makes
+whatever bracket the operator chooses tamper-evident, ordered, and complete
+within its bounds (§9.1). A boundary is nevertheless mandatory in principle:
+a signature covers a fixed byte sequence, so completeness is only meaningful
+over a bounded record. A stream is made provable by bracketing it.
+
+Normative guidance:
+
+- A session SHOULD be coterminous with a single grant of authority: it opens
+  when the agent begins acting under a delegation and closes when that
+  delegated work ends. The `delegation_ref` supplied at open (§9.2) is the
+  intended carrier of this correspondence. This aligns the accountability
+  unit with the liability unit: a sealed session then answers exactly the
+  question a dispute asks — "everything the agent did under this authority."
+- Long-running or continuous agents SHOULD segment: close and reopen on an
+  operator-defined cadence (elapsed time, event count, or checkpoint), and
+  link successor to predecessor per §9.8.2. Segmentation is not a
+  work-around; bounded segments are what keep verification cost bounded. A
+  single unbounded session degrades toward the unauditability of the raw
+  logs it replaces.
+- Operators MAY use any other bracket (a conversation, a workflow run, a
+  billing period). Verifiers MUST NOT infer semantics from session extent
+  beyond what the events themselves attest.
+
+### 9.8.2 Cross-session linkage
+
+Segmented streams SHOULD form a chain of sealed sessions. The linkage
+mechanism is an ordinary event, so it requires no new machinery and is
+covered by every guarantee of §9.2–§9.7:
+
+- The first event (`seq: 0`) of a successor session SHOULD carry the fields
+  `prior_ses` (the predecessor's session id) and `prior_session_root` (the
+  predecessor's sealed `session_root`, bare hex). Because leaves are hashed
+  over their full canonicalized record (§9.2), these fields are bound into
+  the successor's own session root: the link cannot be added, removed, or
+  altered after sealing.
+- The predecessor MUST be in state `sealed` or `signed-unanchored` at link
+  time; linking to an `unsigned` root is NOT permitted (the target could
+  still be forged by an operator who never signs it).
+
+Chain verification procedure (extends §9.7): for sessions S1 … Sn presented
+as a chain, a verifier MUST (a) verify each session independently per §9.7;
+(b) check that each Sk (k>1) seq-0 event carries `prior_session_root` equal
+to S(k−1)'s verified `session_root` and `prior_ses` equal to S(k−1)'s id;
+(c) where anchors exist, check that consensus timestamps are strictly
+increasing along the chain. A verifier MUST report a broken or absent link
+as a chain failure, distinct from any single-session failure.
+
+### 9.8.3 Scope of the completeness guarantee — honest limits
+
+Completeness (§9.1) is a per-session property, and chain linkage extends it
+to the union of linked sessions: within every bracket, nothing is omitted or
+reordered, and the brackets themselves cannot be reordered or substituted.
+
+What the chain does NOT prove: that the agent performed no actions outside
+any session. An agent acting while no session is open leaves no record for
+the construction to constrain — cryptography cannot commit to events that
+were never appended. Closing this gap is an operational control, not a
+cryptographic one: deployments SHOULD bind agent authority to session
+lifecycle (credentials or delegation tokens valid only while a session is
+open), so that acting outside a session is impossible rather than merely
+unattested. Implementations claiming conformance to this section MUST state
+which of these controls they enforce. This boundary is stated here because
+evidentiary infrastructure should be exactly as strong as it claims — no
+more, no less.
+
+### 9.8.4 Orphaned sessions
+
+A session abandoned without close (process death, revoked authority) MUST
+NOT remain open indefinitely. Implementations SHOULD close orphans by
+timeout with a distinguishing `close_reason`, sealing what was recorded up
+to abandonment. An orphan-closed session satisfies every per-session
+guarantee over its recorded prefix; verifiers and downstream consumers MUST
+treat the `close_reason` as part of the attested record.
