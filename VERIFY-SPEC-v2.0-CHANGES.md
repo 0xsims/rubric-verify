@@ -1,4 +1,4 @@
-# Rubric Verify Spec — v1.0.0-rc3 changes
+# Rubric Verify Spec — v2.0 changes
 
 **Status:** draft for `~/rubric-verify` (supersedes rc2 where stated)
 **Basis:** every construction and vector below is reproduced against deployed
@@ -7,7 +7,7 @@ in the tempus deploy-gate on every commit. Nothing here is asserted from a draft
 **Live examples:** HCS topic `0.0.10800940` (memo `rubric-rsa-session-close-v1`,
 mainnet), sequences 1–2, are real sealed sessions produced by this construction.
 
-## Summary of changes from rc2
+## Summary of changes from rc2 / the 1.x verifier line
 
 1. §4.1 is corrected: rc2 described SHA-256 as the universal hash; in fact Rubric
    has **two attestation families with two fixed hashes**. (Chain is truth; the
@@ -18,7 +18,8 @@ mainnet), sequences 1–2, are real sealed sessions produced by this constructio
    attestation class: hash-chained event streams sealed per-session, ML-DSA-65
    signed, HCS-anchored, publicly verifiable.
 4. Appendix A: canonical test vectors (normative).
-5. Appendix B: disclosures (RUBRIC-SEC-2026-001; ADR-0005 supersession).
+5. Appendix B: disclosures (RUBRIC-SEC-2026-001; ADR-0005 supersession;
+   npm verifier 1.x construction mismatch).
 
 ---
 
@@ -268,3 +269,11 @@ select v2/v3 accordingly.
 **B.2 ADR-0005 (Poseidon2) — Superseded.** Poseidon2 was aspirational and never
 deployed; no anchor is sealed with it. Any future ZK path requires a new ADR
 scoped to that subsystem, explicitly not the attestation Merkle hash.
+
+**B.3 npm verifier 1.x — construction mismatch.** `@rubric-protocol/verify`
+1.0.x implements a SHA-256 Merkle construction ratified from spec-side golden
+vectors (2026-06-11) that predate the chain reconciliation. It does not
+reproduce production tiered or session anchors (SHA3-256, §4.7) and is
+deprecated in favor of 2.x, whose chain conformance is enforced by
+`test/chain-conformance.standalone.ts` against the normative vectors of
+Appendix A. 1.x remains correct only for the surfaces its own vectors cover.

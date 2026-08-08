@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.0.0-rc.1 — chain reconciliation (unreleased)
+
+**Breaking / corrective.** The 1.x line implements the rc2-era SHA-256 Merkle
+construction ratified from spec-side vectors (2026-06-11); the August 2026
+chain reconciliation proved production anchors are sealed with SHA3-256
+typed-leaf forests. 1.x therefore cannot reproduce mainnet tiered/session
+roots and is deprecated.
+
+- NEW `src/chain-merkle.ts` — the canonical on-chain construction (SHA3-256,
+  RFC-6962 tags, promote-odd, forest self-pair wrap), proven against the
+  deployed sealer and pinned by normative vectors.
+- NEW `src/session-verify.ts` + `src/session-signature.ts` — Session
+  Attestation verification (Verify Spec v2.0 §9): 4-check proof verification,
+  event chain-rule, ML-DSA-65 seal signature over root bytes, HCS anchor
+  payload binding. Verified against a live production session (topic
+  0.0.10800940 seq 2).
+- NEW `test/chain-conformance.standalone.ts` — normative vectors A.1-A.6;
+  ship-gate: if it fails, the verifier drifted from the chain.
+- Histories reconciled: the published 1.x source is retained under
+  `src/legacy-1x/` (excluded from build) for porting its good parts
+  (trust bootstrap, CLI ergonomics).
+- Spec: `VERIFY-SPEC-v2.0-CHANGES.md` (retitled from rc3) — two-family
+  §4.1 correction, §4.7 construction, §9 Session Attestation, disclosures
+  incl. the 1.x mismatch (B.3).
+
+
 All notable changes to `@rubric/verify` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

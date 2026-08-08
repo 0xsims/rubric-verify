@@ -7,6 +7,16 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "coverage", "test", "examples", "**/*.test.ts"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "test",
+    "examples",
+    "**/*.test.ts",
+    "src/legacy-1x"
+  ]
 }

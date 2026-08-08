@@ -72,8 +72,15 @@ export type {
 } from './types.js';
 
 /** Specification version this implementation conforms to. */
-export const SPEC_VERSION = '1.0.0';
+export const SPEC_VERSION = '2.0.0';
 
 /** Implementation version. */
-export const VERSION = '1.0.0-rc.6';
+export const VERSION = '2.0.0-rc.1';
 export * from './spec-signature.js';
+
+// v2.0: the canonical on-chain construction and Session Attestation verification.
+// These are the modules that reproduce real mainnet anchors (Verify Spec v2.0
+// §4.7/§9); the SHA-256 paths above cover the direct/threshold family only.
+export * from './chain-merkle.js';
+export * from './session-verify.js';
+export * from './session-signature.js';
