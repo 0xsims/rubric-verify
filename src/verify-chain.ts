@@ -187,7 +187,7 @@ export async function verifyChain(
   const parentIds = new Set<string>();
   for (const a of attestations) for (const pe of getParents(a.provenance)) parentIds.add(pe.parent_attestation_id);
   const sinks = attestations.filter((a) => !parentIds.has(a.attestation_id));
-  let tail: string | null = sinks.length === 1 ? sinks[0]!.attestation_id : null;
+  const tail: string | null = sinks.length === 1 ? sinks[0]!.attestation_id : null;
   if (sinks.length > 1) {
     findings.push({ type: 'gap', detail: `ambiguous tail: ${sinks.length} sinks (no single final decision): ${sinks.map((x) => x.attestation_id).join(', ')}` });
   }
