@@ -75,14 +75,14 @@ export interface ChainTree {
 export function buildChainTree(leafDigests: string[]): ChainTree {
   if (leafDigests.length === 0) throw new Error("chain tree needs at least one leaf");
   const levels: string[][] = [leafDigests.map(dLeaf)];
-  while (levels[levels.length - 1].length > 1) {
-    const cur = levels[levels.length - 1];
+  while (levels[levels.length - 1]!.length > 1) {
+    const cur = levels[levels.length - 1]!;
     const next: string[] = [];
-    for (let i = 0; i + 1 < cur.length; i += 2) next.push(dNode(cur[i], cur[i + 1]));
-    if (cur.length % 2 === 1) next.push(cur[cur.length - 1]); // PROMOTE
+    for (let i = 0; i + 1 < cur.length; i += 2) next.push(dNode(cur[i]!, cur[i + 1]!));
+    if (cur.length % 2 === 1) next.push(cur[cur.length - 1]!); // PROMOTE
     levels.push(next);
   }
-  const root = levels[levels.length - 1][0];
+  const root = levels[levels.length - 1]![0]!;
   return {
     root,
     wrappedRoot: chainForestWrap(root),
@@ -102,11 +102,11 @@ function rebuildPath(levels: string[][], leafIndex: number): ChainProofStep[] {
   const path: ChainProofStep[] = [];
   let i = leafIndex;
   for (let d = 0; d < levels.length - 1; d++) {
-    const cur = levels[d];
+    const cur = levels[d]!;
     const isPromoted = cur.length % 2 === 1 && i === cur.length - 1;
     if (!isPromoted) {
       const sib = i % 2 === 0 ? i + 1 : i - 1;
-      path.push({ position: sib < i ? "left" : "right", hash: cur[sib] });
+      path.push({ position: sib < i ? "left" : "right", hash: cur[sib]! });
     }
     i = childToParentIndex(cur.length, i);
   }
