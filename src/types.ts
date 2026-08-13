@@ -125,6 +125,40 @@ export interface AttestationBase {
   publicKey: string;
   /** Hex-encoded ML-DSA-65 signature (3293 bytes). */
   signature: string;
+  /** Optional model reference (§5.6); signed sibling of payload when present. */
+  model_ref?: Record<string, unknown>;
+  /** Optional compliance reference (§5.7); signed sibling of payload when present. */
+  compliance_ref?: Record<string, unknown>;
+  /**
+   * Present only when the submitter signed the payload with its own key AND
+   * that signature verified at ingest. Hashed INTO the leaf: a verifier that
+   * omits it computes a different leaf for every client-signed record.
+   */
+  client_attestation?: {
+    publicKey: string;
+    algorithm: string;
+    verified: boolean;
+    signedAt?: string;
+  };
+  /** The signed tier-1 batch envelope, when the serving node publishes it.
+   *  This — not the bare batch_root — is what the ML-DSA signature covers. */
+  tier1?: {
+    envelope: {
+      rubric_version: string;
+      attestation_type: string;
+      batch_root: string;
+      batch_size: number;
+      flush_id: string;
+      issuer_node_region: string;
+      issued_at: string;
+    };
+    signature?: string;
+    publicKey?: string;
+  };
+  stub?: {
+    leafMessage?: Record<string, unknown>;
+    [k: string]: unknown;
+  };
   anchors: Anchors;
 }
 

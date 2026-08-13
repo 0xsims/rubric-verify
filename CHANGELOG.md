@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.1.0
+
+### Fixed
+
+- **Merkle leaves are now tagged with the RFC 6962 `0x00` byte.** `merkleLeaf`
+  computed `SHA-256(message)`; the producer, `constructions.json`, and every
+  anchored record use `SHA-256(0x00 || message)`. Verify-spec v1.0.0 s7.1 said
+  otherwise and was wrong. Untagged leaves also shared a hash space with
+  internal nodes -- the second-preimage weakness the tagging exists to prevent.
+  Every tiered attestation previously failed verification.
+- **Optional leaf keys are no longer dropped.** `provenance`, `evidence`,
+  `model_ref`, `compliance_ref` and `client_attestation` are hashed into the
+  leaf when present. `/v1/verify/:id` exposes them only inside
+  `attestation.stub`, so `resolveLeafMessage` reads them from
+  `stub.leafMessage` -- but only after confirming all six always-present keys
+  are byte-identical to the record, and rejecting any key outside the
+  published leaf shape.
+- **Batch signatures verify over the signed envelope.** ML-DSA-65 was checked
+  against `hexDecode(batch_root)`, bytes nobody ever signs. It now verifies
+  `canonicalize(tier1.envelope)` with binding checks on root, size, time and
+  region.
+- **HCS anchors resolve by sequence number.** A tiered record is not on the
+  topic individually; the tier-2 aggregate envelope is. Aggregates covering
+  more than one flush report INDETERMINATE rather than a verdict the published
+  evidence cannot support.
+- **Default API is the apex**, which fans out to peer regions, instead of
+  `us.` which returned 404 for records served elsewhere.
+
+### Added
+
+- `resolveLeafMessage` (`src/leaf-source.ts`)
+- `fetchHcsAggregate` (`src/anchors/hcs-aggregate.ts`)
+
+Verified against live anchored records: `eb7310f4` (client-signed, seven-key
+leaf) and `5c974ee7` (unsigned, six-key leaf) both verify. 75/75 tests pass.
+
 ## 2.0.0-rc.1 — chain reconciliation (unreleased)
 
 **Breaking / corrective.** The 1.x line implements the rc2-era SHA-256 Merkle

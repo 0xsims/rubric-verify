@@ -3,10 +3,10 @@
  *
  * Construction:
  *   - Hash function: SHA-256 (spec §4.1).
- *   - Leaf:     leaf_i = SHA-256(canonical_message_i)               (§7.1)
+ *   - Leaf:     leaf_i = SHA-256(0x00 || canonical_message_i)       (§7.1)
  *   - Internal: internal(L, R) = SHA-256(0x01 || L || R)            (§7.2)
- *               where 0x01 is a domain separator distinguishing internal
- *               nodes from leaves (which use no prefix).
+ *               where 0x00 and 0x01 are RFC 6962 domain separators that
+ *               keep leaf and internal-node hashes in disjoint spaces.
  *   - Tree shape: binary, balanced, depth 20 (max 2^20 leaves);
  *                 odd levels are right-padded by duplicating the last leaf.
  *
@@ -21,8 +21,13 @@
 import { sha256, hexDecode, hexEncode, hexEqual, concatBytes3 } from './crypto.js';
 import type { MerkleDirection } from './types.js';
 
+/** Domain separator byte for leaves (RFC 6962). */
+const LEAF_NODE_PREFIX = new Uint8Array([0x00]);
+
 /** Domain separator byte for internal nodes (spec §7.2). */
 const INTERNAL_NODE_PREFIX = new Uint8Array([0x01]);
+
+const EMPTY = new Uint8Array(0);
 
 /**
  * Compute an internal Merkle node: SHA-256(0x01 || left || right).
@@ -32,13 +37,16 @@ export function merkleInternal(left: Uint8Array, right: Uint8Array): Uint8Array 
 }
 
 /**
- * Compute a leaf hash: SHA-256(canonical_message_bytes).
+ * Compute a leaf hash: SHA-256(0x00 || canonical_message_bytes).
  *
- * The leaf has no domain separator prefix, distinguishing it from an internal
- * node (spec §7.2).
+ * Confirmed against live records rather than the draft: for attestation
+ * eb7310f4 the unprefixed digest is d2319dec..., which is that record's
+ * payload_hash, while the 0x00-prefixed digest is 836939c0... -- its
+ * batch_root, and the value actually anchored on HCS. The producer and
+ * constructions.json both tag the leaf; verify-spec v1.0.0 §7.1 is wrong.
  */
 export function merkleLeaf(canonicalMessageBytes: Uint8Array): Uint8Array {
-  return sha256(canonicalMessageBytes);
+  return sha256(concatBytes3(LEAF_NODE_PREFIX, canonicalMessageBytes, EMPTY));
 }
 
 /**

@@ -55,9 +55,17 @@ function buildProof(
 }
 
 describe('Merkle (spec §7)', () => {
-  it('leaf prefix is no domain separator (spec §7.1)', () => {
+  it('leaf uses the 0x00 domain separator (RFC 6962, spec §7.1)', () => {
     const msg = new TextEncoder().encode('hello');
-    expect(hexEncode(merkleLeaf(msg))).toBe(hexEncode(sha256(msg)));
+    // Fixed vectors, computed independently of this implementation:
+    //   sha256('hello')         = 2cf24dba...  <- what a leaf must NOT be
+    //   sha256(0x00 || 'hello') = 8a2a5c9b...  <- what it must be
+    // Untagged leaves share a hash space with internal nodes, which is the
+    // second-preimage weakness RFC 6962 tagging exists to prevent.
+    expect(hexEncode(merkleLeaf(msg))).toBe(
+      '8a2a5c9b768827de5a9552c38a044c66959c68f6d2f21b5260af54d2f87db827',
+    );
+    expect(hexEncode(merkleLeaf(msg))).not.toBe(hexEncode(sha256(msg)));
   });
 
   it('internal node uses 0x01 prefix (spec §7.2)', () => {

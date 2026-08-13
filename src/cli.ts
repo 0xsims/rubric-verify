@@ -8,7 +8,7 @@
  * Options:
  *   --json                  machine-readable output
  *   --anchor <url|file>     trust anchor source (default: https://rubric-protocol.com/trust-anchor.json)
- *   --api <base-url>        attestation retrieval API (default: https://us.rubric-protocol.com)
+ *   --api <base-url>        attestation retrieval API (default: https://rubric-protocol.com)
  *   --allow-single-anchor   accept HCS-only anchoring explicitly
  *
  * Exit codes: 0 = verified, 1 = verification failed, 2 = operational error.
@@ -22,7 +22,10 @@ import { readFileSync, existsSync } from 'fs';
 import { verify } from './index.js';
 
 const DEFAULT_ANCHOR = 'https://rubric-protocol.com/trust-anchor.json';
-const DEFAULT_API = 'https://us.rubric-protocol.com';
+// The apex fans out to peer nodes (since 2026-08-12), so it resolves records
+// served by any region. Pinning us. here meant an sg/jp/ca/eu attestation was
+// simply not found, independent of whether it was valid.
+const DEFAULT_API = 'https://rubric-protocol.com';
 
 interface CliOpts {
   target: string;

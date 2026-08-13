@@ -329,7 +329,19 @@ function buildTieredAttestation(
   const directions: ('L' | 'R')[] = ['L', 'R'];
 
   const batchRootHex = hexEncode(root);
-  const sig = ml_dsa65.sign(node.secretKey, root);
+
+  // The producer signs the canonical tier-1 batch ENVELOPE, not the raw
+  // root bytes. Shape taken from a live record (attestation eb7310f4).
+  const envelope = {
+    rubric_version: '1.0',
+    attestation_type: 'tiered' as const,
+    batch_root: batchRootHex,
+    batch_size: 4,
+    flush_id: 'flush_2026_04_20_0001',
+    issuer_node_region: region,
+    issued_at: '2026-04-20T14:32:01Z',
+  };
+  const sig = ml_dsa65.sign(node.secretKey, canonicalizeBytes(envelope));
 
   const attestation: TieredAttestation = {
     ...ourFields,
@@ -339,6 +351,11 @@ function buildTieredAttestation(
     merkle_proof_directions: directions,
     batch_root: batchRootHex,
     batch_size: 4,
+    tier1: {
+      envelope,
+      signature: hexEncode(sig),
+      publicKey: base64Encode(node.publicKey),
+    },
     anchors: {
       hcs: {
         topic_id: '0.0.10416909',

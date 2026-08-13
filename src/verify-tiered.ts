@@ -18,6 +18,10 @@ import {
 import { fetchHcsMessage } from './anchors/hcs.js';
 import { fetchBaseAnchor } from './anchors/base.js';
 import { merkleLeaf, verifyMerkleProof } from './merkle.js';
+import { resolveLeafMessage } from './leaf-source.js';
+import { canonicalize } from './canonical.js';
+import { chainLeafDigest, buildChainTree, chainForestWrap } from './chain-merkle.js';
+import { fetchHcsAggregate } from './anchors/hcs-aggregate.js';
 import { computeAnchorOk, checkConsensusSuiteWindow } from './verify-direct.js';
 import type {
   AnchorAccess,
@@ -36,16 +40,14 @@ export async function verifyTiered(
   const details: VerifyDetails = {};
 
   /* §9.4.1 — Reconstruct Merkle root. */
-  const leafBytes = merkleLeaf(
-    canonicalizeBytes({
-      rubric_version: a.rubric_version,
-      attestation_type: a.attestation_type,
-      attestation_id: a.attestation_id,
-      issuer_node_region: a.issuer_node_region,
-      issued_at: a.issued_at,
-      payload: a.payload,
-    }),
-  );
+  // The producer adds optional siblings conditionally; carry through whatever
+  // this record has. A fixed key list here silently breaks every record that
+  // carries a key the list omits — see buildAttestationMessage.
+  const leafSource = resolveLeafMessage(a);
+  if (leafSource.error) {
+    failures.push(leafSource.error);
+  }
+  const leafBytes = merkleLeaf(canonicalizeBytes(leafSource.message));
 
   let merkleResult: ReturnType<typeof verifyMerkleProof>;
   try {
@@ -65,22 +67,47 @@ export async function verifyTiered(
     failures.push('Merkle proof does not reconstruct to batch_root');
   }
 
-  /* §9.4.2 — Verify batch_root signature. */
-  let publicKey: Uint8Array;
-  let signature: Uint8Array;
-  let batchRootBytes: Uint8Array;
-  try {
-    publicKey = base64Decode(a.publicKey);
-    signature = hexDecode(a.signature);
-    batchRootBytes = hexDecode(a.batch_root);
-  } catch (e) {
-    failures.push(`malformed encoding: ${(e as Error).message}`);
+  /* §9.4.2 — Verify the signed batch ENVELOPE.
+   *
+   * The producer signs canonicalize(envelope) over seven keys, not the raw
+   * batch_root bytes (tiered-aggregator.ts: signCanonical(batchEnvelope)).
+   * Verifying over hexDecode(batch_root) checks bytes nobody ever signed. */
+  const env = a.tier1?.envelope;
+  if (!env) {
     details.signature_valid = false;
-    return { verified: false, attestation_id: a.attestation_id, details, failures };
-  }
-  details.signature_valid = mlDsa65Verify(publicKey, batchRootBytes, signature);
-  if (!details.signature_valid) {
-    failures.push('Batch root signature verification failed');
+    failures.push(
+      'record does not carry its signed tier-1 envelope (tier1.envelope), ' +
+      'so the batch signature cannot be checked',
+    );
+  } else {
+    // Bind the envelope to this record before trusting it — otherwise a valid
+    // signature over some OTHER batch would pass. Mirrors the bundleBinding
+    // check in the server's tiered-verify.
+    const bound =
+      env.batch_root === a.batch_root &&
+      env.batch_size === a.batch_size &&
+      env.issued_at === a.issued_at &&
+      env.issuer_node_region === a.issuer_node_region;
+    if (!bound) {
+      details.signature_valid = false;
+      failures.push('signed envelope does not bind to this record (root/size/time/region mismatch)');
+    } else {
+      let publicKey: Uint8Array;
+      let signature: Uint8Array;
+      try {
+        publicKey = base64Decode(a.tier1?.publicKey ?? a.publicKey);
+        signature = hexDecode(a.tier1?.signature ?? a.signature);
+      } catch (e) {
+        failures.push(`malformed encoding: ${(e as Error).message}`);
+        details.signature_valid = false;
+        return { verified: false, attestation_id: a.attestation_id, details, failures };
+      }
+      const envBytes = new TextEncoder().encode(canonicalize(env));
+      details.signature_valid = mlDsa65Verify(publicKey, envBytes, signature);
+      if (!details.signature_valid) {
+        failures.push('batch envelope signature verification failed');
+      }
+    }
   }
 
   /* §9.4.3 — Verify publicKey is in trust anchor. */
@@ -104,10 +131,55 @@ export async function verifyTiered(
     fetchImpl: access.fetch,
     timeoutMs: access.timeoutMs,
   });
-  details.hcs_anchor_confirmed =
-    hcs !== null && hexEqual(hcs.payload_hash, a.batch_root);
-  if (!details.hcs_anchor_confirmed) {
-    failures.push('HCS anchor mismatch with batch_root');
+  /* A tiered record is not on HCS individually. What is on the topic is the
+   * tier-2 aggregate envelope, reachable only by sequence number. Reconstruct:
+   *   aggregate leaf = DOCUMENT_HASH{forestRoot: batch_root, itemCount}
+   *   tree root      = single-leaf tree over it
+   *   aggregateRoot  = self-pair wrap of that root
+   * confirmed against seq 287406 before this was written. */
+  const seq = a.anchors.hcs.sequence_number;
+  const agg =
+    typeof seq === 'number' && seq > 0
+      ? await fetchHcsAggregate({
+          hederaMirror: access.hederaMirror,
+          topicId: a.anchors.hcs.topic_id,
+          sequenceNumber: seq,
+          fetchImpl: access.fetch,
+          timeoutMs: access.timeoutMs,
+        })
+      : null;
+
+  if (!agg) {
+    details.hcs_anchor_confirmed = false;
+    failures.push(
+      `tier-2 aggregate anchor not retrievable (topic ${a.anchors.hcs.topic_id} ` +
+      `sequence ${String(seq)})`,
+    );
+  } else if (agg.tier1Count === 1) {
+    const leafDigest = chainLeafDigest('DOCUMENT_HASH', {
+      forestRoot: a.batch_root,
+      itemCount: a.batch_size,
+    });
+    const treeRoot = buildChainTree([leafDigest]).root;
+    const reconstructed = chainForestWrap(treeRoot);
+    details.hcs_anchor_confirmed = reconstructed === agg.aggregateRoot;
+    if (!details.hcs_anchor_confirmed) {
+      failures.push(
+        `batch_root does not reconstruct to the anchored aggregateRoot ` +
+        `(computed ${reconstructed.slice(0, 16)}…, anchored ${agg.aggregateRoot.slice(0, 16)}…)`,
+      );
+    }
+  } else {
+    // The aggregate tree held more than one tier-1 flush. Its sibling roots are
+    // not published in this record, so the walk cannot be completed by a third
+    // party. Say so rather than returning a verdict the evidence cannot carry.
+    Reflect.deleteProperty(details, 'hcs_anchor_confirmed');
+    failures.push(
+      `aggregate inclusion INDETERMINATE: the anchor at sequence ${String(seq)} ` +
+      `covers ${String(agg.tier1Count)} tier-1 flushes and this record does not ` +
+      `carry the aggregate proof path, so batch_root cannot be walked to ` +
+      `aggregateRoot independently`,
+    );
   }
 
   /* Layer 2 — suite downgrade defense (consensus-time cross-check). */
