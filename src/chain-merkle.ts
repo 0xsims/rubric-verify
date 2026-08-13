@@ -1,5 +1,5 @@
 /**
- * chain-merkle.ts — the CANONICAL on-chain Merkle construction (v2.0).
+ * chain-merkle.ts — the CANONICAL on-chain Merkle construction (rc2 §7.5-7.10).
  *
  * This is the construction that seals every production tiered and session
  * anchor (proven byte-for-byte against the deployed builder, 2026-08-07, and
@@ -13,9 +13,9 @@
  *   wrap      : SHA3-256( utf8(root_hex || root_hex) )        // single-tree forest
  *
  * The legacy modules (src/merkle.ts SHA-256; src/legacy-1x/* ratified-vector
- * construction) implement the rc2-era spec reading and DO NOT reproduce chain
+ * construction) build the tier-1 batch tree (§7.1-7.4) and DO NOT reproduce tier-2/session
  * anchors. Verifiers of real anchors MUST use this module. See Verify Spec
- * v2.0 §4.1/§4.7/§9.
+ * v1.0.0-rc2 §7.5-7.10/§9.7.
  */
 import { createHash } from "node:crypto";
 
@@ -120,7 +120,7 @@ export function chainFold(leafDigest: string, path: ChainProofStep[]): string {
   return cur;
 }
 
-/** Epoch/session composition (Verify Spec v2.0 §9.3). */
+/** Epoch/session composition (Verify Spec v1.0.0-rc2 §7.10). */
 export function chainEpochRoot(eventDigests: string[]): string {
   return buildChainTree(eventDigests).wrappedRoot;
 }

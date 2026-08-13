@@ -1,5 +1,5 @@
 /**
- * session-signature.ts — ML-DSA-65 seal signature verification (v2.0 §9.4).
+ * session-signature.ts — ML-DSA-65 seal signature verification (v1.0.0-rc2 §9.7).
  * Split from session-verify so the hash-only checks stay dependency-free.
  */
 import { createHash } from "node:crypto";

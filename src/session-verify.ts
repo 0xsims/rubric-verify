@@ -1,5 +1,5 @@
 /**
- * session-verify.ts — Session Attestation verification (Verify Spec v2.0 §9).
+ * session-verify.ts — Session Attestation verification (Verify Spec v1.0.0-rc2 §9.7).
  *
  * Pure functions over fetched JSON: no network, no trust in the operator.
  * The four checks of §9.7:

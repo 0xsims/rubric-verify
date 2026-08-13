@@ -78,8 +78,8 @@ export const SPEC_VERSION = '2.0.0';
 export const VERSION = '2.0.0-rc.1';
 export * from './spec-signature.js';
 
-// v2.0: the canonical on-chain construction and Session Attestation verification.
-// These are the modules that reproduce real mainnet anchors (Verify Spec v2.0
+// rc2 §7.5-7.10/§9.7: the canonical on-chain construction and Session Attestation verification.
+// These are the modules that reproduce real mainnet anchors (Verify Spec v1.0.0-rc2
 // §4.7/§9); the SHA-256 paths above cover the direct/threshold family only.
 export * from './chain-merkle.js';
 export * from './session-verify.js';
