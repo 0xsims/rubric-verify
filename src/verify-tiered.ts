@@ -20,7 +20,7 @@ import { fetchBaseAnchor } from './anchors/base.js';
 import { merkleLeaf, verifyMerkleProof } from './merkle.js';
 import { resolveLeafMessage } from './leaf-source.js';
 import { canonicalize } from './canonical.js';
-import { chainLeafDigest, buildChainTree, chainForestWrap } from './chain-merkle.js';
+import { checkAggregateInclusion } from './anchors/aggregate-inclusion.js';
 import { fetchHcsAggregate } from './anchors/hcs-aggregate.js';
 import { computeAnchorOk, checkConsensusSuiteWindow } from './verify-direct.js';
 import type {
@@ -155,31 +155,23 @@ export async function verifyTiered(
       `tier-2 aggregate anchor not retrievable (topic ${a.anchors.hcs.topic_id} ` +
       `sequence ${String(seq)})`,
     );
-  } else if (agg.tier1Count === 1) {
-    const leafDigest = chainLeafDigest('DOCUMENT_HASH', {
-      forestRoot: a.batch_root,
-      itemCount: a.batch_size,
-    });
-    const treeRoot = buildChainTree([leafDigest]).root;
-    const reconstructed = chainForestWrap(treeRoot);
-    details.hcs_anchor_confirmed = reconstructed === agg.aggregateRoot;
-    if (!details.hcs_anchor_confirmed) {
-      failures.push(
-        `batch_root does not reconstruct to the anchored aggregateRoot ` +
-        `(computed ${reconstructed.slice(0, 16)}…, anchored ${agg.aggregateRoot.slice(0, 16)}…)`,
-      );
-    }
   } else {
-    // The aggregate tree held more than one tier-1 flush. Its sibling roots are
-    // not published in this record, so the walk cannot be completed by a third
-    // party. Say so rather than returning a verdict the evidence cannot carry.
-    Reflect.deleteProperty(details, 'hcs_anchor_confirmed');
-    failures.push(
-      `aggregate inclusion INDETERMINATE: the anchor at sequence ${String(seq)} ` +
-      `covers ${String(agg.tier1Count)} tier-1 flushes and this record does not ` +
-      `carry the aggregate proof path, so batch_root cannot be walked to ` +
-      `aggregateRoot independently`,
-    );
+    const incl = checkAggregateInclusion({
+      batchRoot: a.batch_root,
+      batchSize: a.batch_size,
+      tier1Count: agg.tier1Count,
+      aggregateRoot: agg.aggregateRoot,
+      flushes: a.anchors.hcs.aggregate_flushes,
+    });
+    if (incl.status === 'confirmed') {
+      details.hcs_anchor_confirmed = true;
+    } else if (incl.status === 'mismatch') {
+      details.hcs_anchor_confirmed = false;
+      failures.push(`aggregate inclusion failed: ${incl.reason}`);
+    } else {
+      Reflect.deleteProperty(details, 'hcs_anchor_confirmed');
+      failures.push(`aggregate inclusion INDETERMINATE: ${incl.reason}`);
+    }
   }
 
   /* Layer 2 — suite downgrade defense (consensus-time cross-check). */

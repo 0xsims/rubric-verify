@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.2.0
+
+### Added
+
+- **Aggregate inclusion is verifiable for multi-flush anchors.** Records now
+  publish `anchors.hcs.aggregate_flushes`; the verifier rebuilds the tier-2
+  tree, locates its own leaf by `batch_root`, derives the inclusion path and
+  folds it to the anchored `aggregateRoot`. Any record whose anchor covered
+  more than one tier-1 flush previously reported INDETERMINATE -- 1422 stored
+  records were in that state. The list is checked against the anchored
+  tier1Count, and this record against its own batch_root and batch_size, so a
+  substituted list cannot make a false record pass.
+- New export: `checkAggregateInclusion`.
+
 ## 2.1.0
 
 ### Fixed

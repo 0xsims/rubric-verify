@@ -28,6 +28,10 @@ export interface HcsAnchor {
   consensus_timestamp: string;
   /** HCS sequence number for the message. */
   sequence_number: number;
+  /** Tier-1 flushes covered by the tier-2 aggregate anchor for this record.
+   *  Published so a verifier can rebuild the aggregate tree and derive its
+   *  own inclusion path rather than trust a server-supplied one. */
+  aggregate_flushes?: { forestRoot: string; itemCount: number }[] | undefined;
 }
 
 /**
