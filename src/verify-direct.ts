@@ -93,17 +93,33 @@ export async function verifyDirect(
   if (l2) failures.push(l2);
 
   /* §9.3.4 — Verify Base anchor. */
-  const base = await fetchBaseAnchor({
-    baseRpc: access.baseRpc,
-    contractAddress: ta.base.anchor_contract,
-    txHash: a.anchors.base.tx_hash,
-    fetchImpl: access.fetch,
-    timeoutMs: access.timeoutMs,
-  });
-  details.base_anchor_confirmed =
-    base !== null && hexEqual(base.aggregate_root, expectedHashHex);
-  if (!details.base_anchor_confirmed) {
-    failures.push('Base anchor not found or root mismatch');
+  /* Base anchoring is not always active. An attestation that was never
+     anchored carries an empty tx_hash, and "not anchored" is a different fact
+     from "anchored to a different root". Collapsing them reported a mismatch
+     on every attestation, which teaches readers to ignore the one message
+     that should stop them. Mirrors the INDETERMINATE handling used for the
+     HCS aggregate-inclusion check above. */
+  let base: Awaited<ReturnType<typeof fetchBaseAnchor>> | null = null;
+  const baseTx = a.anchors.base?.tx_hash;
+  if (!baseTx) {
+    Reflect.deleteProperty(details, 'base_anchor_confirmed');
+  } else {
+    base = await fetchBaseAnchor({
+      baseRpc: access.baseRpc,
+      contractAddress: ta.base.anchor_contract,
+      txHash: baseTx,
+      fetchImpl: access.fetch,
+      timeoutMs: access.timeoutMs,
+    });
+    if (base === null) {
+      Reflect.deleteProperty(details, 'base_anchor_confirmed');
+      failures.push('Base anchor INDETERMINATE: tx_hash present but anchor not retrievable');
+    } else {
+      details.base_anchor_confirmed = hexEqual(base.aggregate_root, expectedHashHex);
+      if (!details.base_anchor_confirmed) {
+        failures.push('Base anchor root mismatch');
+      }
+    }
   }
 
   /* §9.3.5 / §10.4 — Cross-chain consistency. If both anchors returned data,

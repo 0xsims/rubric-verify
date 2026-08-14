@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.3.0
+
+### Fixed
+- Base anchor absence is no longer reported as a root mismatch. With Base
+  anchoring paused, every attestation carries an empty `anchors.base.tx_hash`,
+  and `verify-direct` / `verify-tiered` / `verify-threshold` collapsed
+  "not anchored" and "anchored to a different root" into one branch — so every
+  verification emitted a mismatch note while returning `VERIFIED: true`.
+  Now three states: no `tx_hash` is silent, an unretrievable `tx_hash` reports
+  INDETERMINATE, and only a genuine disagreement reports a mismatch.
+
+### Changed
+- `details.base_anchor_confirmed` is now **absent** rather than `false` when the
+  Base anchor is unconfirmed, matching the existing INDETERMINATE handling for
+  HCS aggregate inclusion. Consumers keying on `=== false` must check for
+  `undefined`. Verdict logic is unchanged: `computeAnchorOk` reads
+  `!!details.base_anchor_confirmed`.
+
+
 ## 2.2.0
 
 ### Added

@@ -811,7 +811,34 @@ describe('verify (end-to-end)', () => {
     });
     expect(result.verified).toBe(true);
     expect(result.details.hcs_anchor_confirmed).toBe(true);
-    expect(result.details.base_anchor_confirmed).toBe(false);
+    // 'false' means checked-and-disagreed. An unreachable anchor is not that:
+    // the property is absent and the reason is stated explicitly.
+    expect(result.details.base_anchor_confirmed).toBeUndefined();
+    expect(result.failures).toContain(
+      'Base anchor INDETERMINATE: tx_hash present but anchor not retrievable',
+    );
+  });
+
+  it('stays silent when Base anchoring is not active (empty tx_hash)', async () => {
+    const fixture = buildFixture();
+    const { attestation, payloadHashHex } = buildDirectAttestation(fixture);
+    attestation.anchors.base.tx_hash = '';
+    const result = await verify({
+      attestation,
+      trustAnchor: fixture.trustAnchor,
+      access: {
+        hederaMirror: 'https://stub',
+        baseRpc: 'https://stub',
+        allowSingleAnchor: true,
+        fetch: makeStubFetch({
+          hcsPayloadHashHex: payloadHashHex,
+          baseAggregateRootHex: null,
+        }),
+      },
+    });
+    expect(result.verified).toBe(true);
+    expect(result.details.base_anchor_confirmed).toBeUndefined();
+    expect(result.failures.join(' ')).not.toMatch(/Base anchor/);
   });
 
   it('rejects when both anchors error (spec §10.3 fallthrough)', async () => {
