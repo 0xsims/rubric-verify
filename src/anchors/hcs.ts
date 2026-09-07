@@ -56,7 +56,12 @@ interface ParsedTxId {
  * Parse a record tx_id ("0.0.x@<secs>.<nanos>") into the components the mirror
  * node reports inside chunk_info.initial_transaction_id.
  */
-function parseTxId(txId: string): ParsedTxId | null {
+function parseTxId(txId: string | null | undefined): ParsedTxId | null {
+  // tx_id is legitimately absent on tiered anchors: the pointer block is written
+  // empty at tier-1 flush and only the sequence number is backfilled. Since
+  // 2026-08-21 the API reports that absence as null rather than "", which is
+  // honest but crashed every published verifier here. Absence is not an error.
+  if (typeof txId !== 'string' || txId.length === 0) return null;
   const at = txId.indexOf('@');
   if (at <= 0 || at === txId.length - 1) return null;
   const accountId = txId.slice(0, at);
