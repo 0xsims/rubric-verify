@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * Chain conformance — normative vectors of Verify Spec v2.0 Appendix A.
  * Standalone: `npx tsx test/chain-conformance.standalone.ts` (no jest, no deps).

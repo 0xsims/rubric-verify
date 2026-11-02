@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 // Stage 0 cross-parity: prove tempus canonicalize === verify-package canonicalize.
 // If these diverge, what the federation signs and what the published verifier
 // checks are different — silent genesis failure. Catch it here, on staging.

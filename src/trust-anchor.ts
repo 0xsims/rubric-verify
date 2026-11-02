@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * Trust anchor validation per Rubric Verify Spec v1.0.0 §8 and §9.2.
  *

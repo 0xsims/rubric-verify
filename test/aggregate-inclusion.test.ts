@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 import { checkAggregateInclusion } from '../src/anchors/aggregate-inclusion.js';
 import { chainLeafDigest, buildChainTree, chainForestWrap }
   from '../src/chain-merkle.js';

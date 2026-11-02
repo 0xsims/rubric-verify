@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * session-signature.ts — ML-DSA-65 seal signature verification (v1.0.0-rc2 §9.7).
  * Split from session-verify so the hash-only checks stay dependency-free.

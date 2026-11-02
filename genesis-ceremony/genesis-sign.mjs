@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 // Genesis trust-anchor signer. Imports canonicalize from the published verify
 // package so the bytes signed here are exactly the bytes the verifier checks.
 // Signs over the anchor with trust_anchor_signature removed (matches

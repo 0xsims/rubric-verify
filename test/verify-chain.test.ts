@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 import { verifyChain } from '../src/verify-chain.js';
 import type { StepVerifyResult } from '../src/verify-chain.js';
 import { canonicalizeBytes } from '../src/canonical.js';

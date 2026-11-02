@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 // spec-merkle.ts
 //
 // Spec-conformant Merkle construction per Rubric Verify Spec §7.1 and the

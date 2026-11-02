@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * End-to-end verification tests using self-generated keys and signatures.
  *

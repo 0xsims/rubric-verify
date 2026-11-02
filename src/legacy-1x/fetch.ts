@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /** Record retrieval. The verifier does not trust the source — every record's
  *  signature is checked against the anchored keys and every cross-reference
  *  against bound hashes — so ANY holder of the records can serve them: a

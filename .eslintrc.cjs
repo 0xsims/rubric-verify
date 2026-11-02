@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',

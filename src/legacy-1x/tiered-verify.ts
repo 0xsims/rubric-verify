@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 // tiered-verify.ts
 //
 // C5: spec-conformant verification of a tiered attestation. Pure function —

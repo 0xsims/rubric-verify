@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * Deterministic JSON canonicalization per RFC 8785 (JSON Canonicalization Scheme),
  * with the clarifications mandated by Rubric Verify Spec v1.0.0 §6.1:

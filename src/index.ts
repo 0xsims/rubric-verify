@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * @rubric/verify — reference implementation of the Rubric Attestation
  * Verification Specification v1.0.0.

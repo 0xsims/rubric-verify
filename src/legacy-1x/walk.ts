@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /** Provenance DAG walk, ported from the server's provenance-walk.ts.
  *  Verification of each node is injected (verify.ts + trust anchor). */
 import type { TrustAnchor } from "./trust.js";

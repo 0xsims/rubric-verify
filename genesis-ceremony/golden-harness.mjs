@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 // Stage 0 golden harness. Generates throwaway ML-DSA-65 keys (NON-PRODUCTION),
 // builds a complete test anchor, runs sign->verify end-to-end, and records a
 // golden vector. Proves the ceremony tooling is correct before any real key.

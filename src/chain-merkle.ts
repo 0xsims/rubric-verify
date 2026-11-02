@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * chain-merkle.ts — the CANONICAL on-chain Merkle construction (rc2 §7.5-7.10).
  *

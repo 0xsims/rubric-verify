@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * session-verify.ts — Session Attestation verification (Verify Spec v1.0.0-rc2 §9.7).
  *
