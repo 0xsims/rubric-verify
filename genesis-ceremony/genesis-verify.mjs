@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 // Genesis verifier. Uses the published package's own validateTrustAnchorSignature
 // and assertWellFormedTrustAnchor — the exact code an external auditor runs.
 // Usage: node genesis-verify.mjs <signed-anchor.json>

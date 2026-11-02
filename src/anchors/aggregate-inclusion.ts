@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * Walk a tiered record's batch_root to the anchored tier-2 aggregate root.
  *

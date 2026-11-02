@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * The exact object the producer hashes (spec §6.3), rebuilt from a record.
  *

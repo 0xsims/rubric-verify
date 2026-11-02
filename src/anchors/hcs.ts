@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * Hedera Consensus Service (HCS) anchor confirmation per spec §10.1.
  *

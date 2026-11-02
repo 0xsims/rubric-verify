@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 import { describe, it, expect } from '@jest/globals';
 import { ml_dsa65 } from '@noble/post-quantum/ml-dsa';
 import { buildSignableForm, verifySpecSignature, SPEC_SIG_SENTINEL } from '../src/spec-signature.js';

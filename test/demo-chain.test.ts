@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * Agentic decision-chain tamper demo, as a runnable test (also serves as the
  * real-crypto end-to-end golden fixture — Item 2). Builds a 3-step ML-DSA-65

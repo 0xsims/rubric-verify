@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * Rubric — agentic decision-chain tamper demo (presentation build).
  * Self-contained, offline, real ML-DSA-65. Run: node rubric-chain-demo.mjs

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Echelon Intelligence Group LLC
 /**
  * Canonicalization tests covering RFC 8785 conformance and the spec §6.2 example.
  */
